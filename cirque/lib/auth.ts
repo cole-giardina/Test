@@ -1,4 +1,20 @@
+import type { AuthError } from "@supabase/supabase-js";
+
 import { supabase } from "@/lib/supabase";
+
+/** Maps Supabase Auth errors to clearer copy (e.g. email rate limits). */
+export function formatAuthErrorMessage(error: AuthError | Error): string {
+  const raw = error.message ?? "";
+  const lower = raw.toLowerCase();
+  if (
+    lower.includes("rate limit") ||
+    lower.includes("too many requests") ||
+    lower.includes("email rate limit")
+  ) {
+    return "Too many emails were sent from this app. Wait a while and try again. For development, turn off “Confirm email” under Supabase → Authentication → Providers → Email so sign-up does not send confirmation mail.";
+  }
+  return raw;
+}
 
 function validateEmail(email: string): string | null {
   const trimmed = email.trim().toLowerCase();

@@ -53,6 +53,7 @@ export interface FoodLog {
   potassium_mg: number | null;
   magnesium_mg: number | null;
   logged_at: string | null;
+  confidence: string | null;
   created_at: string;
 }
 
@@ -139,6 +140,7 @@ export interface Database {
           potassium_mg?: number | null;
           magnesium_mg?: number | null;
           logged_at?: string | null;
+          confidence?: string | null;
           created_at?: string;
         };
         Update: Partial<Omit<FoodLog, "id" | "created_at">>;

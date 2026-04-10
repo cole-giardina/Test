@@ -57,20 +57,21 @@ export default function OnboardingScreen() {
       const w = weightKg.trim() ? Number(weightKg) : null;
       const a = age.trim() ? parseInt(age, 10) : null;
 
-      const { error: updateError } = await supabase
-        .from("profiles")
-        .update({
+      const { error: upsertError } = await supabase.from("profiles").upsert(
+        {
+          auth_user_id: user.id,
           display_name: displayName.trim() || null,
           sport_type: sportType,
           training_level: trainingLevel,
           weight_kg: w !== null && !Number.isNaN(w) ? w : null,
           age: a !== null && !Number.isNaN(a) ? a : null,
           sex,
-        })
-        .eq("auth_user_id", user.id);
+        },
+        { onConflict: "auth_user_id" },
+      );
 
-      if (updateError) {
-        setError(updateError.message);
+      if (upsertError) {
+        setError(upsertError.message);
         return;
       }
 

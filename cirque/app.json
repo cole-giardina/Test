@@ -5,6 +5,7 @@
     "scheme": "cirque",
     "version": "1.0.0",
     "orientation": "portrait",
+    "platforms": ["ios"],
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
@@ -14,7 +15,18 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
-      "supportsTablet": true
+      "bundleIdentifier": "com.cirque.app",
+      "supportsTablet": false,
+      "infoPlist": {
+        "NSHealthShareUsageDescription": "Cirque reads your workouts and activity data to provide personalized nutrition and recovery recommendations.",
+        "NSHealthUpdateUsageDescription": "Cirque may write nutrition data back to Apple Health.",
+        "NSCameraUsageDescription": "Cirque uses the camera to scan barcodes and photograph meals for food logging.",
+        "NSPhotoLibraryUsageDescription": "Cirque accesses your photo library to log meals from existing photos."
+      },
+      "entitlements": {
+        "com.apple.developer.healthkit": true,
+        "com.apple.developer.healthkit.background-delivery": true
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -30,7 +42,31 @@
     },
     "plugins": [
       "expo-router",
-      "expo-secure-store"
+      "expo-secure-store",
+      [
+        "expo-build-properties",
+        {
+          "ios": {
+            "deploymentTarget": "16.0"
+          }
+        }
+      ],
+      "expo-barcode-scanner",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Cirque uses the camera to scan barcodes and photograph meals for food logging.",
+          "microphonePermission": "Cirque may use the microphone when recording video for meal logging."
+        }
+      ],
+      [
+        "apple-health",
+        {
+          "healthSharePermission": "Cirque reads your workouts and activity data to provide personalized nutrition and recovery recommendations.",
+          "healthUpdatePermission": "Cirque may write nutrition data back to Apple Health.",
+          "backgroundDelivery": true
+        }
+      ]
     ]
   }
 }

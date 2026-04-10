@@ -11,6 +11,7 @@ import {
 } from "react-native";
 
 import {
+  formatAuthErrorMessage,
   signInWithOtp,
   signInWithPassword,
   signUp,
@@ -24,15 +25,25 @@ export default function LoginScreen() {
   const [loadingMagic, setLoadingMagic] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [magicSent, setMagicSent] = useState(false);
+  /** Set when signUp succeeds but Supabase has not issued a session (e.g. email confirmation required). */
+  const [signUpAwaitingEmail, setSignUpAwaitingEmail] = useState(false);
 
   async function handleEmailPassword() {
     setError(null);
+    setSignUpAwaitingEmail(false);
     setLoadingSignIn(true);
     try {
       const fn = isSignUpMode ? signUp : signInWithPassword;
-      const { error: err } = await fn(email, password);
-      if (err) {
-        setError(err.message);
+      const result = await fn(email, password);
+      if (result.error) {
+        setError(formatAuthErrorMessage(result.error));
+        return;
+      }
+      if (isSignUpMode) {
+        const session = result.data?.session;
+        if (!session) {
+          setSignUpAwaitingEmail(true);
+        }
       }
     } finally {
       setLoadingSignIn(false);
@@ -46,7 +57,7 @@ export default function LoginScreen() {
     try {
       const { error: err, success } = await signInWithOtp(email);
       if (err) {
-        setError(err.message);
+        setError(formatAuthErrorMessage(err));
         return;
       }
       if (success) {
@@ -129,6 +140,7 @@ export default function LoginScreen() {
           onPress={() => {
             setIsSignUpMode(!isSignUpMode);
             setError(null);
+            setSignUpAwaitingEmail(false);
           }}
           disabled={loadingSignIn}
         >
@@ -158,6 +170,13 @@ export default function LoginScreen() {
             </Text>
           )}
         </Pressable>
+
+        {signUpAwaitingEmail ? (
+          <Text className="mt-4 text-center text-sm text-cyan-400">
+            Account created. Check your email to confirm your address, then sign in
+            here to continue to onboarding.
+          </Text>
+        ) : null}
 
         {magicSent ? (
           <Text className="mt-4 text-center text-sm text-cyan-400">

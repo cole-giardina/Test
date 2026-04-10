@@ -60,6 +60,47 @@ One line per table:
 
 ---
 
+## Food logging
+
+- **Natural-language input** on **`app/(tabs)/log.tsx`**: the user describes what they ate. **`expo-camera`** and **`expo-barcode-scanner`** are installed for the **development build** only—they do **not** work in **Expo Go**; wire them in the dev client when ready.
+- **Claude parsing** lives in **`cirque/lib/foodAI.ts`**: **`parseFoodEntry(description: string, mealType: string)`** calls the Anthropic Messages API with model **`claude-sonnet-4-20250514`**, `max_tokens: 500`, a fixed **system** prompt (endurance-focused estimates, JSON-only), and a **user** prompt that asks for a strict JSON shape (description, macros, electrolytes in mg, `confidence`, `notes`). The client parses JSON (including markdown code fences if the model wraps the payload) and returns **`ParsedFoodNutrition`**; failures throw descriptive errors.
+- **Environment**: set **`EXPO_PUBLIC_ANTHROPIC_API_KEY`** in **`cirque/.env.local`** (see **`.env.example`**). Restart Expo after changes.
+- **Preview-before-save**: after a successful parse, **`NutritionPreviewCard`** shows the estimate with **Save** / **Edit**; **Save** persists via **`saveFoodLog`** in **`cirque/lib/foodLog.ts`**. **Edit** dismisses the preview and restores the original text in the input.
+- **Persistence**: **`saveFoodLog(userId, entry)`** uses **`profiles.id`** as `userId` (FK `food_logs.user_id`). Entries use **`source: 'ai'`**. Optional **`confidence`** (`high` | `medium` | `low`) is stored on **`food_logs.confidence`** when the migration adding that column is applied.
+- **Reads**: **`getTodaysFoodLogs(userId)`** and **`getDailyTotals(userId, date)`** (`date` = local calendar day **`YYYY-MM-DD`**) support the log UI and totals; listing uses today’s midnight–end in the device timezone.
+- **Meal type pills** default from **time of day** (same rules as in the Log screen: before 10 → Breakfast, etc.).
+- **Security note**: the API key is bundled in the client today (**`dangerouslyAllowBrowser: true`** on the Anthropic SDK). Plan to move parsing to a **Supabase Edge Function** (or backend) before production so the key is not exposed.
+
+---
+
+## Dashboard
+
+- **Home tab** is **`app/(tabs)/index.tsx`**: dark (**`#0a0a0a`**), teal accents (**`#00D4A0`**), dense layout—greeting + date, calorie hero ring, electrolyte **StatCards**, optional macro bars, recent workouts, today’s food preview, AI recommendation card. **Pull-to-refresh** calls **`useDashboard().refresh()`**.
+- **`useDashboard`** (**`cirque/hooks/useDashboard.ts`**) aggregates data for the screen. **`profile`** comes from **`useAuth`** (no extra fetch). In parallel (**`Promise.all`**), it loads **`getTodaysFoodLogs`**, **`getDailyTotals(userId, today)`** (local **`YYYY-MM-DD`** via **`getTodayDateString()`** in **`lib/formatters.ts`**), **`getRecentWorkouts`** and **`getLatestAiRecommendation`** from **`lib/dashboardData.ts`**. Each query **`.catch`es** so one failure does not wipe the rest. Waits for **`authLoading`** from **`AuthContext`** before fetching.
+- **UI building blocks**: **`CalorieRingHero`** (wraps **`MacroRing`** with **`centerContent`** for kcal + satellites for P/C/F grams), **`StatCard`**, **`MacroBar`**, **`SectionHeader`**, **`WorkoutRow`**, **`RecommendationCard`** under **`components/ui/`**.
+- **Electrolyte daily targets** (dashboard bars): **sodium 1500 mg**, **potassium 3500 mg**, **magnesium 400 mg**. Bar fill = **min(100%, consumed ÷ target × 100)**; color **teal** if at or under target, **amber** (`#F59E0B`) if over.
+- **Macro goals** (from profile): **protein** = **`profile.daily_protein_g`** (fallback **120 g** in bars); **carbs** = **`(daily_calorie_goal × 0.5) / 4`**; **fat** = **`(daily_calorie_goal × 0.25) / 9`**. The **macro breakdown** block is **hidden** unless **`profile.daily_calorie_goal`** is set (> 0).
+- **Calorie ring**: if **no calorie goal**, the ring shows **no progress arc** (max placeholder **1**); center still shows **consumed kcal** only.
+- **Helpers** (**`lib/formatters.ts`**): **`formatDuration`**, **`formatDate`** (Today / Yesterday / short weekday), **`getGreeting`**, **`formatFirstName`**, **`getTodayDateString`**.
+- **AI recommendation card**: **`RecommendationCard`** shows copy from **`ai_recommendations`** when present; otherwise prompts the user to log a workout for refueling advice. **`ai_recommendations`** rows will populate once the **AI pipeline** and **HealthKit**-driven flows exist; until then the empty state is expected.
+
+---
+
+## Dev build (iOS / EAS)
+
+- **Bundle ID:** **`com.cirque.app`** (`ios.bundleIdentifier` in **`app.json`**).
+- **EAS profiles** (**`eas.json`**): **`development`** — dev client, internal distribution, **physical device** (`ios.simulator: false`); **`simulator`** — dev client for **iOS Simulator**; **`preview`** — internal; **`production`** — App Store (`store`).
+- **Apple Developer Program:** a **paid** membership (**$99/year**) is required for device builds, TestFlight, and App Store; EAS uses your Apple account for signing.
+- **HealthKit:** **`ios.infoPlist`** usage strings, **`ios.entitlements`** (`healthkit`, `healthkit.background-delivery`), **`deploymentTarget` `16.0`** via **`expo-build-properties`**, and the **`apple-health`** config plugin are declared in **`app.json`**. **`lib/healthkit.ts`** is a **scaffold** only (TODOs)—runtime integration uses the **`apple-health`** package (the npm package named **`expo-health`** is an empty placeholder; do not use it).
+- **Deferred native packages (dev client only):** **`apple-health`**, **`expo-camera`**, **`expo-barcode-scanner`**—not available in Expo Go; rebuild the dev client after native changes.
+- **EAS CLI:** installed as a **devDependency** (`eas-cli`); use **`cd cirque && npx eas …`** (global `npm i -g eas-cli` is optional if you prefer).
+- **Build commands (after `eas login` and Apple account ready):**
+  - Device: `cd cirque && eas build --profile development --platform ios`
+  - Simulator: `cd cirque && eas build --profile simulator --platform ios`
+- **Apple Team ID:** EAS will prompt for it (or read from **`eas.json`** / credentials) when you configure iOS credentials—needed for provisioning profiles and signing; set it during the first **`eas build`** or in the Expo dashboard under project credentials.
+
+---
+
 ## Phases
 
 | Phase | Focus |
