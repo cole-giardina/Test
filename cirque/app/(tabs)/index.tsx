@@ -11,18 +11,17 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { CalorieRingHero } from "@/components/ui/CalorieRingHero";
+import { FrostedCard } from "@/components/ui/FrostedCard";
 import { MacroBar } from "@/components/ui/MacroBar";
 import { RecommendationCard } from "@/components/ui/RecommendationCard";
 import { SectionHeader } from "@/components/ui/SectionHeader";
 import { StatCard } from "@/components/ui/StatCard";
 import { WorkoutRow } from "@/components/ui/WorkoutRow";
+import { colors } from "@/constants/colors";
 import { useDashboard } from "@/hooks/useDashboard";
 import { formatFirstName, getGreeting } from "@/lib/formatters";
 
-const BG = "#0a0a0a";
-const SURFACE = "#1a1a1a";
-const BRAND = "#00D4A0";
-const AMBER = "#F59E0B";
+const AMBER = colors.warning;
 
 const NA_TARGET = 1500;
 const K_TARGET = 3500;
@@ -38,6 +37,18 @@ function zeroTotals() {
     potassium_mg: 0,
     magnesium_mg: 0,
   };
+}
+
+function initialsFromName(name: string | null | undefined): string {
+  const t = name?.trim();
+  if (!t) {
+    return "?";
+  }
+  const parts = t.split(/\s+/);
+  if (parts.length >= 2) {
+    return `${parts[0]![0] ?? ""}${parts[parts.length - 1]![0] ?? ""}`.toUpperCase();
+  }
+  return t.slice(0, 2).toUpperCase();
 }
 
 export default function DashboardTab() {
@@ -81,10 +92,13 @@ export default function DashboardTab() {
   }
 
   return (
-    <View className="flex-1" style={{ backgroundColor: BG, paddingTop: insets.top }}>
+    <View
+      className="flex-1 bg-brand-bg"
+      style={{ paddingTop: insets.top }}
+    >
       {isLoading ? (
         <View className="flex-1 items-center justify-center">
-          <ActivityIndicator size="large" color={BRAND} />
+          <ActivityIndicator size="large" color={colors.accentBright} />
         </View>
       ) : (
         <ScrollView
@@ -95,20 +109,39 @@ export default function DashboardTab() {
             <RefreshControl
               refreshing={refreshing}
               onRefresh={onRefresh}
-              tintColor={BRAND}
+              tintColor={colors.accentBright}
             />
           }
         >
           <View className="mb-5 flex-row items-start justify-between pt-2">
-            <View className="max-w-[72%]">
+            <View className="max-w-[68%]">
               <Text
                 className="font-bold text-white"
-                style={{ fontSize: 20, lineHeight: 26 }}
+                style={{ fontSize: 22, lineHeight: 28 }}
               >
                 {getGreeting()}, {greetingName}
               </Text>
+              <Text
+                className="mt-0.5 text-[13px]"
+                style={{ color: colors.textSecondary }}
+              >
+                {headerDate}
+              </Text>
             </View>
-            <Text className="text-sm text-[#888888]">{headerDate}</Text>
+            <View
+              className="h-11 w-11 items-center justify-center rounded-full border"
+              style={{
+                backgroundColor: colors.surface,
+                borderColor: colors.accent,
+              }}
+            >
+              <Text
+                className="text-sm font-bold"
+                style={{ color: colors.accentBright }}
+              >
+                {initialsFromName(profile?.display_name)}
+              </Text>
+            </View>
           </View>
 
           <View className="mb-5 items-center">
@@ -127,117 +160,148 @@ export default function DashboardTab() {
               value={totals.sodium_mg}
               unit="mg"
               barPercent={(totals.sodium_mg / NA_TARGET) * 100}
-              barColor={totals.sodium_mg <= NA_TARGET ? BRAND : AMBER}
+              barColor={totals.sodium_mg <= NA_TARGET ? colors.sodium : AMBER}
+              accentTop={colors.sodium}
             />
             <StatCard
               label="Potassium"
               value={totals.potassium_mg}
               unit="mg"
               barPercent={(totals.potassium_mg / K_TARGET) * 100}
-              barColor={totals.potassium_mg <= K_TARGET ? BRAND : AMBER}
+              barColor={
+                totals.potassium_mg <= K_TARGET ? colors.potassium : AMBER
+              }
+              accentTop={colors.potassium}
             />
             <StatCard
               label="Magnesium"
               value={totals.magnesium_mg}
               unit="mg"
               barPercent={(totals.magnesium_mg / MG_TARGET) * 100}
-              barColor={totals.magnesium_mg <= MG_TARGET ? BRAND : AMBER}
+              barColor={
+                totals.magnesium_mg <= MG_TARGET ? colors.magnesium : AMBER
+              }
+              accentTop={colors.magnesium}
             />
           </View>
 
           {showMacroBreakdown ? (
-            <View className="mb-5 rounded-xl bg-[#1a1a1a] p-4" style={{ borderRadius: 12 }}>
-              <Text
-                className="mb-3 text-[13px] uppercase tracking-wide text-[#888888]"
-                style={{ fontSize: 13 }}
-              >
-                Macros
-              </Text>
-              <View className="gap-3">
-              <MacroBar
-                label="Protein"
-                value={totals.protein_g}
-                max={proteinGoal}
-                color="#22d3ee"
-              />
-              <MacroBar
-                label="Carbs"
-                value={totals.carbs_g}
-                max={carbGoal}
-                color="#fbbf24"
-              />
-              <MacroBar
-                label="Fat"
-                value={totals.fat_g}
-                max={fatGoal}
-                color="#fb7185"
-              />
-              </View>
+            <View className="mb-5">
+              <FrostedCard>
+                <Text
+                  className="mb-3 text-[11px] font-semibold uppercase tracking-[0.2em]"
+                  style={{ color: colors.textTertiary }}
+                >
+                  Macros
+                </Text>
+                <View className="gap-3">
+                  <MacroBar
+                    label="Protein"
+                    value={totals.protein_g}
+                    max={proteinGoal}
+                    color={colors.accentBright}
+                  />
+                  <MacroBar
+                    label="Carbs"
+                    value={totals.carbs_g}
+                    max={carbGoal}
+                    color={colors.accentBright}
+                  />
+                  <MacroBar
+                    label="Fat"
+                    value={totals.fat_g}
+                    max={fatGoal}
+                    color={colors.accentBright}
+                  />
+                </View>
+              </FrostedCard>
             </View>
           ) : null}
 
           <View className="mb-5">
             <SectionHeader title="Recent workouts" />
-            <View
-              className="rounded-xl bg-[#1a1a1a] px-4 py-2"
-              style={{ borderRadius: 12 }}
-            >
-              {data.recentWorkouts.length === 0 ? (
-                <Text className="py-4 text-center text-sm leading-relaxed text-[#888888]">
+            {data.recentWorkouts.length === 0 ? (
+              <FrostedCard>
+                <Text
+                  className="py-2 text-center text-sm leading-relaxed"
+                  style={{ color: colors.textSecondary }}
+                >
                   No workouts yet. Connect HealthKit or Strava to sync your training.
                 </Text>
-              ) : (
-                data.recentWorkouts.map((w) => (
-                  <WorkoutRow key={w.id} workout={w} />
-                ))
-              )}
-            </View>
+              </FrostedCard>
+            ) : (
+              data.recentWorkouts.map((w) => (
+                <WorkoutRow key={w.id} workout={w} />
+              ))
+            )}
           </View>
 
           <View className="mb-5">
             <SectionHeader title="Today's food" actionLabel="See all" onAction={goToLog} />
-            <View
-              className="rounded-xl bg-[#1a1a1a] px-4 py-3"
-              style={{ borderRadius: 12 }}
-            >
-              {foodPreview.length === 0 ? (
+            {foodPreview.length === 0 ? (
+              <FrostedCard>
                 <View className="items-center py-2">
-                  <Text className="mb-3 text-center text-sm text-[#888888]">
+                  <Text
+                    className="mb-3 text-center text-sm"
+                    style={{ color: colors.textSecondary }}
+                  >
                     Nothing logged yet today
                   </Text>
                   <Pressable
-                    className="rounded-xl bg-[#00D4A0] px-5 py-3 active:opacity-90"
+                    className="rounded-[12px] px-5 py-3 active:opacity-90"
+                    style={{
+                      backgroundColor: colors.accent,
+                      borderWidth: 1,
+                      borderColor: colors.accentBright,
+                    }}
                     onPress={goToLog}
                   >
-                    <Text className="text-center text-sm font-semibold text-[#0a0a0a]">
+                    <Text className="text-center text-sm font-bold text-white">
                       Log food
                     </Text>
                   </Pressable>
                 </View>
-              ) : (
-                foodPreview.map((item) => (
-                  <View
-                    key={item.id}
-                    className="flex-row items-center justify-between border-b border-zinc-800/80 py-3 last:border-b-0"
-                  >
-                    <Text
-                      className="mr-2 flex-1 text-base text-white"
-                      numberOfLines={1}
-                    >
-                      {item.description ?? "Meal"}
-                    </Text>
-                    {item.meal_type ? (
-                      <View className="mr-2 rounded-full bg-zinc-800 px-2 py-0.5">
-                        <Text className="text-xs text-zinc-300">{item.meal_type}</Text>
+              </FrostedCard>
+            ) : (
+              foodPreview.map((item) => (
+                <View key={item.id} className="mb-3">
+                  <FrostedCard padding={14}>
+                    <View className="flex-row items-center justify-between gap-2">
+                      <Text
+                        className="mr-2 flex-1 text-[15px] text-white"
+                        numberOfLines={1}
+                      >
+                        {item.description ?? "Meal"}
+                      </Text>
+                      <View className="flex-row items-center gap-2">
+                        {item.meal_type ? (
+                          <View
+                            className="rounded-full border px-2 py-0.5"
+                            style={{
+                              backgroundColor: colors.surface,
+                              borderColor: colors.accent,
+                            }}
+                          >
+                            <Text
+                              className="text-xs font-medium"
+                              style={{ color: colors.accentBright }}
+                            >
+                              {item.meal_type}
+                            </Text>
+                          </View>
+                        ) : null}
+                        <Text
+                          className="text-[18px] font-bold"
+                          style={{ color: colors.accentBright }}
+                        >
+                          {Math.round(Number(item.calories ?? 0))}
+                        </Text>
                       </View>
-                    ) : null}
-                    <Text className="text-sm font-semibold text-[#00D4A0]">
-                      {Math.round(Number(item.calories ?? 0))}
-                    </Text>
-                  </View>
-                ))
-              )}
-            </View>
+                    </View>
+                  </FrostedCard>
+                </View>
+              ))
+            )}
           </View>
 
           <View className="mb-5">

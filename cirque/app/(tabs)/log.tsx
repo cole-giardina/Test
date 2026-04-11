@@ -1,8 +1,10 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "expo-router";
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Animated,
+  Easing,
   FlatList,
   KeyboardAvoidingView,
   Platform,
@@ -14,17 +16,15 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { FrostedCard } from "@/components/ui/FrostedCard";
 import { MacroRing } from "@/components/ui/MacroRing";
 import { NutritionPreviewCard } from "@/components/ui/NutritionPreviewCard";
+import { colors } from "@/constants/colors";
 import { useAuth } from "@/hooks/useAuth";
 import { parseFoodEntry } from "@/lib/foodAI";
 import { getTodaysFoodLogs, saveFoodLog } from "@/lib/foodLog";
 import type { ParsedFoodNutrition } from "@/lib/foodAI";
 import type { FoodLog, Profile } from "@/types/database";
-
-const BG = "#0a0a0a";
-const SURFACE = "#1a1a1a";
-const BRAND = "#00D4A0";
 
 const MEAL_TYPES = [
   "Breakfast",
@@ -108,52 +108,88 @@ function sumTotalsFromLogs(logs: FoodLog[]) {
 function FoodEntryCard({ item }: { item: FoodLog }) {
   const lowConfidence = item.confidence === "low";
   return (
-    <View className="mb-3 rounded-2xl border border-zinc-800 p-4" style={{ backgroundColor: SURFACE }}>
-      <View className="flex-row items-start justify-between gap-2">
-        <Text className="flex-1 text-base font-semibold leading-snug text-zinc-100">
-          {item.description ?? "Meal"}
-        </Text>
+    <View className="mb-3">
+      <FrostedCard padding={14}>
+        <View className="flex-row items-start justify-between gap-2">
+          <Text className="flex-1 text-[15px] font-semibold leading-snug text-white">
+            {item.description ?? "Meal"}
+          </Text>
+          <Text
+            className="text-[18px] font-bold"
+            style={{ color: colors.accentBright }}
+          >
+            {Math.round(Number(item.calories ?? 0))}
+          </Text>
+        </View>
+
         {item.meal_type ? (
-          <View className="rounded-full bg-zinc-800 px-2 py-0.5">
-            <Text className="text-xs font-medium text-zinc-300">{item.meal_type}</Text>
+          <View className="mt-2 flex-row flex-wrap gap-2">
+            <View
+              className="rounded-full border px-2 py-0.5"
+              style={{
+                backgroundColor: colors.surface,
+                borderColor: colors.accent,
+              }}
+            >
+              <Text
+                className="text-xs font-medium"
+                style={{ color: colors.accentBright }}
+              >
+                {item.meal_type}
+              </Text>
+            </View>
           </View>
         ) : null}
-      </View>
 
-      {lowConfidence ? (
-        <Text className="mt-1 text-xs text-amber-400/90">Low confidence estimate</Text>
-      ) : null}
+        {lowConfidence ? (
+          <Text
+            className="mt-1 text-xs"
+            style={{ color: colors.warning }}
+          >
+            Low confidence estimate
+          </Text>
+        ) : null}
 
-      <Text className="mt-3 text-3xl font-bold text-[#00D4A0]">
-        {Math.round(Number(item.calories ?? 0))}{" "}
-        <Text className="text-sm font-semibold text-zinc-500">kcal</Text>
-      </Text>
+        <View className="mt-3 flex-row gap-6">
+          <Text className="text-xs" style={{ color: colors.textSecondary }}>
+            P{" "}
+            <Text className="font-semibold text-white">
+              {Math.round(Number(item.protein_g ?? 0))}g
+            </Text>
+          </Text>
+          <Text className="text-xs" style={{ color: colors.textSecondary }}>
+            C{" "}
+            <Text className="font-semibold text-white">
+              {Math.round(Number(item.carbs_g ?? 0))}g
+            </Text>
+          </Text>
+          <Text className="text-xs" style={{ color: colors.textSecondary }}>
+            F{" "}
+            <Text className="font-semibold text-white">
+              {Math.round(Number(item.fat_g ?? 0))}g
+            </Text>
+          </Text>
+        </View>
 
-      <View className="mt-3 flex-row gap-6">
-        <Text className="text-sm text-zinc-400">
-          P <Text className="font-semibold text-zinc-200">{Math.round(Number(item.protein_g ?? 0))}g</Text>
-        </Text>
-        <Text className="text-sm text-zinc-400">
-          C <Text className="font-semibold text-zinc-200">{Math.round(Number(item.carbs_g ?? 0))}g</Text>
-        </Text>
-        <Text className="text-sm text-zinc-400">
-          F <Text className="font-semibold text-zinc-200">{Math.round(Number(item.fat_g ?? 0))}g</Text>
-        </Text>
-      </View>
+        <View className="mt-2 flex-row flex-wrap gap-x-4 gap-y-1">
+          <Text className="text-[11px]" style={{ color: colors.textTertiary }}>
+            Na {Math.round(Number(item.sodium_mg ?? 0))} mg
+          </Text>
+          <Text className="text-[11px]" style={{ color: colors.textTertiary }}>
+            K {Math.round(Number(item.potassium_mg ?? 0))} mg
+          </Text>
+          <Text className="text-[11px]" style={{ color: colors.textTertiary }}>
+            Mg {Math.round(Number(item.magnesium_mg ?? 0))} mg
+          </Text>
+        </View>
 
-      <View className="mt-2 flex-row flex-wrap gap-x-4 gap-y-1">
-        <Text className="text-xs text-zinc-500">
-          Na {Math.round(Number(item.sodium_mg ?? 0))} mg
+        <Text
+          className="mt-2 text-[11px]"
+          style={{ color: colors.textTertiary }}
+        >
+          {formatLogTime(item.logged_at)}
         </Text>
-        <Text className="text-xs text-zinc-500">
-          K {Math.round(Number(item.potassium_mg ?? 0))} mg
-        </Text>
-        <Text className="text-xs text-zinc-500">
-          Mg {Math.round(Number(item.magnesium_mg ?? 0))} mg
-        </Text>
-      </View>
-
-      <Text className="mt-2 text-xs text-zinc-600">{formatLogTime(item.logged_at)}</Text>
+      </FrostedCard>
     </View>
   );
 }
@@ -162,6 +198,7 @@ export default function LogTab() {
   const { profile } = useAuth();
   const insets = useSafeAreaInsets();
   const inputRef = useRef<TextInput>(null);
+  const analyzePulse = useRef(new Animated.Value(1)).current;
 
   const [mealType, setMealType] = useState(getDefaultMealTypeForNow);
   const [inputText, setInputText] = useState("");
@@ -174,9 +211,35 @@ export default function LogTab() {
   const [todaysLogs, setTodaysLogs] = useState<FoodLog[]>([]);
   const [listLoading, setListLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [inputFocused, setInputFocused] = useState(false);
 
   const goals = useMemo(() => getMacroGoals(profile), [profile]);
   const totals = useMemo(() => sumTotalsFromLogs(todaysLogs), [todaysLogs]);
+
+  useEffect(() => {
+    if (!analyzing) {
+      analyzePulse.setValue(1);
+      return;
+    }
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(analyzePulse, {
+          toValue: 0.35,
+          duration: 650,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+        Animated.timing(analyzePulse, {
+          toValue: 1,
+          duration: 650,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+      ]),
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [analyzing, analyzePulse]);
 
   const loadLogs = useCallback(async () => {
     if (!profile?.id) {
@@ -260,11 +323,11 @@ export default function LogTab() {
   }
 
   const showSummary = todaysLogs.length > 0;
+  const inputBorder = inputFocused ? colors.accent : "rgba(42, 69, 96, 0.6)";
 
   return (
     <KeyboardAvoidingView
-      className="flex-1"
-      style={{ backgroundColor: BG }}
+      className="flex-1 bg-brand-bg"
       behavior={Platform.OS === "ios" ? "padding" : undefined}
       keyboardVerticalOffset={Platform.OS === "ios" ? 8 : 0}
     >
@@ -273,14 +336,22 @@ export default function LogTab() {
         style={{ paddingBottom: Math.max(insets.bottom, 8) }}
       >
         <View className="pb-3">
-          <Text className="text-2xl font-bold tracking-tight text-zinc-50">
+          <Text className="text-2xl font-bold tracking-tight text-white">
             Log food
           </Text>
-          <Text className="mt-1 text-sm text-zinc-500">{formatHeaderDate()}</Text>
+          <Text
+            className="mt-1 text-sm"
+            style={{ color: colors.textSecondary }}
+          >
+            {formatHeaderDate()}
+          </Text>
         </View>
 
-        <Text className="mb-2 text-xs font-medium uppercase tracking-wide text-zinc-500">
-          Meal type
+        <Text
+          className="mb-2 text-[11px] font-semibold uppercase tracking-[0.2em]"
+          style={{ color: colors.textTertiary }}
+        >
+          MEAL TYPE
         </Text>
         <ScrollView
           horizontal
@@ -296,14 +367,16 @@ export default function LogTab() {
                 onPress={() => setMealType(m)}
                 className="rounded-full px-4 py-2"
                 style={{
-                  backgroundColor: selected ? BRAND : SURFACE,
-                  borderWidth: selected ? 0 : 1,
-                  borderColor: "#27272a",
+                  backgroundColor: selected ? colors.accent : colors.surface,
+                  borderWidth: 1,
+                  borderColor: selected ? colors.accentBright : colors.border,
                 }}
               >
                 <Text
                   className="text-sm font-semibold"
-                  style={{ color: selected ? "#0a0a0a" : "#d4d4d8" }}
+                  style={{
+                    color: selected ? colors.textPrimary : colors.textSecondary,
+                  }}
                 >
                   {m}
                 </Text>
@@ -312,14 +385,17 @@ export default function LogTab() {
           })}
         </ScrollView>
 
-        <Text className="mb-2 text-xs font-medium uppercase tracking-wide text-zinc-500">
-          Today
+        <Text
+          className="mb-2 text-[11px] font-semibold uppercase tracking-[0.2em]"
+          style={{ color: colors.textTertiary }}
+        >
+          TODAY
         </Text>
 
         <View className="min-h-[180px] flex-1">
           {listLoading ? (
             <View className="flex-1 items-center justify-center py-12">
-              <ActivityIndicator color={BRAND} />
+              <ActivityIndicator color={colors.accentBright} />
             </View>
           ) : (
             <FlatList
@@ -333,7 +409,10 @@ export default function LogTab() {
               }}
               ListEmptyComponent={
                 <View className="items-center justify-center py-12">
-                  <Text className="text-center text-base text-zinc-500">
+                  <Text
+                    className="text-center text-base"
+                    style={{ color: colors.textSecondary }}
+                  >
                     Nothing logged yet today. What have you eaten?
                   </Text>
                 </View>
@@ -344,15 +423,20 @@ export default function LogTab() {
         </View>
 
         {showSummary ? (
-          <View
-            className="rounded-2xl border border-zinc-800 px-3 py-3"
-            style={{ backgroundColor: SURFACE }}
-          >
+          <FrostedCard className="mb-3">
             <View className="mb-3 flex-row items-end justify-between">
-              <Text className="text-xs uppercase text-zinc-500">Today</Text>
-              <Text className="text-lg font-bold text-zinc-50">
+              <Text
+                className="text-[11px] font-semibold uppercase tracking-[0.2em]"
+                style={{ color: colors.textTertiary }}
+              >
+                TODAY
+              </Text>
+              <Text className="text-lg font-bold text-white">
                 {Math.round(totals.calories)}
-                <Text className="text-sm font-normal text-zinc-500">
+                <Text
+                  className="text-sm font-normal"
+                  style={{ color: colors.textSecondary }}
+                >
                   {" "}
                   / {goals.calorieGoal} kcal
                 </Text>
@@ -363,22 +447,25 @@ export default function LogTab() {
                 label="P"
                 value={totals.protein_g}
                 max={goals.proteinGoal}
-                color="#22d3ee"
+                color={colors.accentBright}
+                trackColor={colors.border}
               />
               <MacroRing
                 label="C"
                 value={totals.carbs_g}
                 max={goals.carbGoal}
-                color="#fbbf24"
+                color={colors.accentBright}
+                trackColor={colors.border}
               />
               <MacroRing
                 label="F"
                 value={totals.fat_g}
                 max={goals.fatGoal}
-                color="#fb7185"
+                color={colors.accentBright}
+                trackColor={colors.border}
               />
             </View>
-          </View>
+          </FrostedCard>
         ) : null}
 
         {preview ? (
@@ -391,40 +478,57 @@ export default function LogTab() {
         ) : null}
 
         {error ? (
-          <Text className="mb-2 rounded-lg bg-red-950/80 px-3 py-2 text-sm text-red-200">
+          <Text className="mb-2 text-sm" style={{ color: colors.danger }}>
             {error}
           </Text>
         ) : null}
 
         {analyzing ? (
-          <View className="mb-2 flex-row items-center gap-2 px-1">
-            <ActivityIndicator color={BRAND} size="small" />
-            <Text className="text-sm text-zinc-400">Analyzing…</Text>
-          </View>
+          <Animated.View
+            className="mb-2 flex-row items-center gap-2 px-1"
+            style={{ opacity: analyzePulse }}
+          >
+            <ActivityIndicator color={colors.accentBright} size="small" />
+            <Text className="text-sm" style={{ color: colors.textSecondary }}>
+              Analyzing…
+            </Text>
+          </Animated.View>
         ) : null}
 
-        <View className="mt-1 flex-row items-end gap-2 border-t border-zinc-800/80 pt-3">
-          <TextInput
-            ref={inputRef}
-            className="max-h-32 min-h-[48px] flex-1 rounded-xl border border-zinc-800 px-3 py-3 text-base text-zinc-100"
-            style={{ backgroundColor: SURFACE }}
-            placeholder="What did you eat? e.g. 'big bowl of oatmeal with banana and almond butter' or '3 scrambled eggs and toast with avocado'"
-            placeholderTextColor="#71717a"
-            multiline
-            editable={!analyzing && !saving}
-            value={inputText}
-            onChangeText={setInputText}
-          />
+        <View className="mt-1 flex-row items-end gap-2 pt-3">
+          <FrostedCard
+            padding={0}
+            className="min-h-[48px] flex-1"
+            style={{ borderColor: inputBorder }}
+          >
+            <TextInput
+              ref={inputRef}
+              className="max-h-32 min-h-[48px] px-3 py-3 text-base text-white"
+              placeholder="What did you eat? e.g. 'big bowl of oatmeal with banana and almond butter' or '3 scrambled eggs and toast with avocado'"
+              placeholderTextColor={colors.textTertiary}
+              style={{ fontStyle: "italic" }}
+              multiline
+              editable={!analyzing && !saving}
+              value={inputText}
+              onChangeText={setInputText}
+              onFocus={() => setInputFocused(true)}
+              onBlur={() => setInputFocused(false)}
+            />
+          </FrostedCard>
           <Pressable
             className="mb-0.5 h-12 w-12 items-center justify-center rounded-full active:opacity-80"
-            style={{ backgroundColor: BRAND }}
+            style={{
+              backgroundColor: colors.accent,
+              borderWidth: 1,
+              borderColor: colors.accentBright,
+            }}
             onPress={handleAnalyze}
             disabled={analyzing || saving || inputText.trim().length < 3}
           >
             {analyzing ? (
-              <ActivityIndicator color="#0a0a0a" size="small" />
+              <ActivityIndicator color={colors.textPrimary} size="small" />
             ) : (
-              <Ionicons name="arrow-up" size={22} color="#0a0a0a" />
+              <Ionicons name="arrow-up" size={22} color={colors.textPrimary} />
             )}
           </Pressable>
         </View>

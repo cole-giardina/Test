@@ -12,6 +12,9 @@ import {
 import { router } from "expo-router";
 import { Picker } from "@react-native-picker/picker";
 
+import { AtmosphericBg } from "@/components/ui/AtmosphericBg";
+import { FrostedCard } from "@/components/ui/FrostedCard";
+import { colors } from "@/constants/colors";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/lib/supabase";
 
@@ -32,6 +35,8 @@ const TRAINING_LEVELS = [
 ] as const;
 
 const SEX_OPTIONS = ["Male", "Female", "Prefer not to say"] as const;
+
+const TOTAL_STEPS = 1;
 
 export default function OnboardingScreen() {
   const { user, refreshProfile } = useAuth();
@@ -84,121 +89,198 @@ export default function OnboardingScreen() {
 
   return (
     <KeyboardAvoidingView
-      className="flex-1 bg-zinc-950"
+      className="flex-1 bg-brand-bg"
       behavior={Platform.OS === "ios" ? "padding" : undefined}
     >
-      <ScrollView
-        keyboardShouldPersistTaps="handled"
-        contentContainerStyle={{ paddingHorizontal: 24, paddingVertical: 40 }}
-      >
-        <Text className="mb-2 text-2xl font-bold text-zinc-50">
-          Welcome to Cirque
-        </Text>
-        <Text className="mb-8 text-sm text-zinc-500">
-          Tell us a bit about you so we can personalize fueling and recovery.
-        </Text>
-
-        <Text className="mb-1 text-xs font-medium uppercase text-zinc-400">
-          Display name
-        </Text>
-        <TextInput
-          className="mb-4 rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-3 text-zinc-100"
-          placeholder="Your name"
-          placeholderTextColor="#71717a"
-          value={displayName}
-          onChangeText={setDisplayName}
-        />
-
-        <Text className="mb-1 text-xs font-medium uppercase text-zinc-400">
-          Sport
-        </Text>
-        <View className="mb-4 overflow-hidden rounded-xl border border-zinc-800 bg-zinc-900">
-          <Picker
-            selectedValue={sportType}
-            onValueChange={(v) => setSportType(v)}
-            style={{ color: "#fafafa" }}
-            dropdownIconColor="#a1a1aa"
-          >
-            {SPORT_TYPES.map((s) => (
-              <Picker.Item key={s} label={s} value={s} color="#fafafa" />
-            ))}
-          </Picker>
-        </View>
-
-        <Text className="mb-1 text-xs font-medium uppercase text-zinc-400">
-          Training level
-        </Text>
-        <View className="mb-4 overflow-hidden rounded-xl border border-zinc-800 bg-zinc-900">
-          <Picker
-            selectedValue={trainingLevel}
-            onValueChange={(v) => setTrainingLevel(v)}
-            style={{ color: "#fafafa" }}
-          >
-            {TRAINING_LEVELS.map((s) => (
-              <Picker.Item key={s} label={s} value={s} color="#fafafa" />
-            ))}
-          </Picker>
-        </View>
-
-        <Text className="mb-1 text-xs font-medium uppercase text-zinc-400">
-          Weight (kg)
-        </Text>
-        <TextInput
-          className="mb-4 rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-3 text-zinc-100"
-          placeholder="e.g. 70"
-          placeholderTextColor="#71717a"
-          keyboardType="decimal-pad"
-          value={weightKg}
-          onChangeText={setWeightKg}
-        />
-
-        <Text className="mb-1 text-xs font-medium uppercase text-zinc-400">
-          Age
-        </Text>
-        <TextInput
-          className="mb-4 rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-3 text-zinc-100"
-          placeholder="e.g. 32"
-          placeholderTextColor="#71717a"
-          keyboardType="number-pad"
-          value={age}
-          onChangeText={setAge}
-        />
-
-        <Text className="mb-1 text-xs font-medium uppercase text-zinc-400">
-          Sex
-        </Text>
-        <View className="mb-8 overflow-hidden rounded-xl border border-zinc-800 bg-zinc-900">
-          <Picker
-            selectedValue={sex}
-            onValueChange={(v) => setSex(v)}
-            style={{ color: "#fafafa" }}
-          >
-            {SEX_OPTIONS.map((s) => (
-              <Picker.Item key={s} label={s} value={s} color="#fafafa" />
-            ))}
-          </Picker>
-        </View>
-
-        {error ? (
-          <Text className="mb-4 rounded-lg bg-red-950/80 px-3 py-2 text-sm text-red-200">
-            {error}
-          </Text>
-        ) : null}
-
-        <Pressable
-          className="rounded-xl bg-cyan-500 py-4 active:opacity-90"
-          onPress={handleSubmit}
-          disabled={loading}
+      <View className="flex-1">
+        <AtmosphericBg />
+        <ScrollView
+          keyboardShouldPersistTaps="handled"
+          contentContainerStyle={{
+            paddingHorizontal: 24,
+            paddingVertical: 32,
+            paddingBottom: 48,
+          }}
         >
-          {loading ? (
-            <ActivityIndicator color="#09090b" />
-          ) : (
-            <Text className="text-center text-base font-semibold text-zinc-950">
-              Continue
+          <View className="mb-8">
+            <Text
+              className="text-[10px] font-semibold uppercase tracking-[0.2em]"
+              style={{ color: colors.textTertiary }}
+            >
+              {`Step 1 of ${TOTAL_STEPS}`}
             </Text>
-          )}
-        </Pressable>
-      </ScrollView>
+            <View
+              className="mt-2 h-1 w-full overflow-hidden rounded-full"
+              style={{ backgroundColor: `${colors.border}99` }}
+            >
+              <View
+                className="h-full rounded-full"
+                style={{
+                  width: "100%",
+                  backgroundColor: colors.accentBright,
+                }}
+              />
+            </View>
+          </View>
+
+          <Text className="mb-2 text-2xl font-bold text-white">
+            Tell us about you
+          </Text>
+          <Text
+            className="mb-8 text-sm leading-relaxed"
+            style={{ color: colors.textSecondary }}
+          >
+            We use this to personalize fueling and recovery guidance.
+          </Text>
+
+          <FrostedCard className="mb-5">
+            <TextInput
+              className="text-base text-white"
+              placeholder="Display name"
+              placeholderTextColor={colors.textTertiary}
+              value={displayName}
+              onChangeText={setDisplayName}
+            />
+          </FrostedCard>
+
+          <Text
+            className="mb-2 text-[11px] font-semibold uppercase tracking-[0.15em]"
+            style={{ color: colors.textTertiary }}
+          >
+            Sport
+          </Text>
+          <FrostedCard padding={0} className="mb-5">
+            <Picker
+              selectedValue={sportType}
+              onValueChange={(v) => setSportType(v)}
+              style={{ color: colors.textPrimary }}
+              dropdownIconColor={colors.accentBright}
+              itemStyle={{ color: colors.textPrimary }}
+            >
+              {SPORT_TYPES.map((s) => (
+                <Picker.Item
+                  key={s}
+                  label={s}
+                  value={s}
+                  color={colors.textPrimary}
+                />
+              ))}
+            </Picker>
+          </FrostedCard>
+
+          <Text
+            className="mb-2 text-[11px] font-semibold uppercase tracking-[0.15em]"
+            style={{ color: colors.textTertiary }}
+          >
+            Training level
+          </Text>
+          <FrostedCard padding={0} className="mb-5">
+            <Picker
+              selectedValue={trainingLevel}
+              onValueChange={(v) => setTrainingLevel(v)}
+              style={{ color: colors.accentBright }}
+              itemStyle={{ color: colors.textPrimary }}
+            >
+              {TRAINING_LEVELS.map((s) => (
+                <Picker.Item
+                  key={s}
+                  label={s}
+                  value={s}
+                  color={colors.textPrimary}
+                />
+              ))}
+            </Picker>
+          </FrostedCard>
+
+          <View className="mb-5 flex-row gap-3">
+            <View className="flex-1">
+              <Text
+                className="mb-2 text-[11px] font-semibold uppercase tracking-[0.15em]"
+                style={{ color: colors.textTertiary }}
+              >
+                Weight (kg)
+              </Text>
+              <FrostedCard padding={12}>
+                <TextInput
+                  className="text-base text-white"
+                  placeholder="e.g. 70"
+                  placeholderTextColor={colors.textTertiary}
+                  keyboardType="decimal-pad"
+                  value={weightKg}
+                  onChangeText={setWeightKg}
+                />
+              </FrostedCard>
+            </View>
+            <View className="flex-1">
+              <Text
+                className="mb-2 text-[11px] font-semibold uppercase tracking-[0.15em]"
+                style={{ color: colors.textTertiary }}
+              >
+                Age
+              </Text>
+              <FrostedCard padding={12}>
+                <TextInput
+                  className="text-base text-white"
+                  placeholder="e.g. 32"
+                  placeholderTextColor={colors.textTertiary}
+                  keyboardType="number-pad"
+                  value={age}
+                  onChangeText={setAge}
+                />
+              </FrostedCard>
+            </View>
+          </View>
+
+          <Text
+            className="mb-2 text-[11px] font-semibold uppercase tracking-[0.15em]"
+            style={{ color: colors.textTertiary }}
+          >
+            Sex
+          </Text>
+          <FrostedCard padding={0} className="mb-8">
+            <Picker
+              selectedValue={sex}
+              onValueChange={(v) => setSex(v)}
+              style={{ color: colors.textPrimary }}
+              itemStyle={{ color: colors.textPrimary }}
+            >
+              {SEX_OPTIONS.map((s) => (
+                <Picker.Item
+                  key={s}
+                  label={s}
+                  value={s}
+                  color={colors.textPrimary}
+                />
+              ))}
+            </Picker>
+          </FrostedCard>
+
+          {error ? (
+            <Text className="mb-4 text-sm" style={{ color: colors.danger }}>
+              {error}
+            </Text>
+          ) : null}
+
+          <Pressable
+            className="h-[52px] w-full items-center justify-center rounded-[12px] active:opacity-90"
+            style={{
+              backgroundColor: colors.accent,
+              borderWidth: 1,
+              borderColor: colors.accentBright,
+            }}
+            onPress={handleSubmit}
+            disabled={loading}
+          >
+            {loading ? (
+              <ActivityIndicator color={colors.textPrimary} />
+            ) : (
+              <Text className="text-center text-base font-bold text-white">
+                Continue
+              </Text>
+            )}
+          </Pressable>
+        </ScrollView>
+      </View>
     </KeyboardAvoidingView>
   );
 }

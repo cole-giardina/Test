@@ -15,12 +15,12 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
-      "bundleIdentifier": "com.cirque.app",
+      "bundleIdentifier": "com.colegiardina.cirque",
       "supportsTablet": false,
       "infoPlist": {
         "NSHealthShareUsageDescription": "Cirque reads your workouts and activity data to provide personalized nutrition and recovery recommendations.",
         "NSHealthUpdateUsageDescription": "Cirque may write nutrition data back to Apple Health.",
-        "NSCameraUsageDescription": "Cirque uses the camera to scan barcodes and photograph meals for food logging.",
+        "NSCameraUsageDescription": "Cirque uses the camera to photograph meals for food logging.",
         "NSPhotoLibraryUsageDescription": "Cirque accesses your photo library to log meals from existing photos."
       },
       "entitlements": {
@@ -41,6 +41,7 @@
       "bundler": "metro"
     },
     "plugins": [
+      "expo-dev-client",
       "expo-router",
       "expo-secure-store",
       [
@@ -51,11 +52,10 @@
           }
         }
       ],
-      "expo-barcode-scanner",
       [
         "expo-camera",
         {
-          "cameraPermission": "Cirque uses the camera to scan barcodes and photograph meals for food logging.",
+          "cameraPermission": "Cirque uses the camera to photograph meals for food logging.",
           "microphonePermission": "Cirque may use the microphone when recording video for meal logging."
         }
       ],

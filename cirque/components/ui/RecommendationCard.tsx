@@ -1,5 +1,7 @@
 import { Text, View } from "react-native";
 
+import { FrostedCard } from "@/components/ui/FrostedCard";
+import { colors } from "@/constants/colors";
 import type { AiRecommendation } from "@/types/database";
 
 type RecommendationCardProps = {
@@ -9,30 +11,39 @@ type RecommendationCardProps = {
 export function RecommendationCard({ recommendation }: RecommendationCardProps) {
   if (!recommendation) {
     return (
-      <View
-        className="rounded-xl bg-[#1a1a1a] px-4 py-4"
-        style={{ borderRadius: 12 }}
-      >
-        <Text className="text-sm leading-relaxed text-[#888888]">
+      <FrostedCard>
+        <Text
+          className="text-sm leading-relaxed"
+          style={{ color: colors.textSecondary }}
+        >
           Log your first workout to get personalized refueling advice.
         </Text>
-      </View>
+      </FrostedCard>
     );
   }
 
   return (
-    <View
-      className="relative rounded-xl border border-[#00D4A0]/40 bg-[#1a1a1a] px-4 py-4"
-      style={{ borderRadius: 12 }}
-    >
-      <View className="absolute right-3 top-3 rounded bg-[#00D4A0]/20 px-2 py-0.5">
-        <Text className="text-[10px] font-bold uppercase text-[#00D4A0]">
-          AI
+    <FrostedCard leftBorderAccent={colors.accentBright}>
+      <View className="relative min-h-[48px]">
+        <View
+          className="absolute right-0 top-0 z-10 rounded-full px-2 py-0.5"
+          style={{
+            backgroundColor: "rgba(13, 27, 42, 0.9)",
+            borderWidth: 1,
+            borderColor: colors.border,
+          }}
+        >
+          <Text
+            className="text-[10px] font-bold uppercase tracking-wide"
+            style={{ color: colors.accentBright }}
+          >
+            AI
+          </Text>
+        </View>
+        <Text className="pr-12 text-base leading-relaxed text-white">
+          {recommendation.recommendation}
         </Text>
       </View>
-      <Text className="pr-12 text-base leading-relaxed text-white">
-        {recommendation.recommendation}
-      </Text>
-    </View>
+    </FrostedCard>
   );
 }

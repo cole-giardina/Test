@@ -1,6 +1,8 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Text, View } from "react-native";
 
+import { FrostedCard } from "@/components/ui/FrostedCard";
+import { colors } from "@/constants/colors";
 import { formatDate, formatDuration } from "@/lib/formatters";
 import type { Workout } from "@/types/database";
 
@@ -20,26 +22,42 @@ export function WorkoutRow({ workout }: WorkoutRowProps) {
   const when = workout.started_at ?? workout.created_at;
   const durationSec = workout.duration_seconds ?? 0;
   const cal = workout.calories_burned;
+  const calNum =
+    cal != null && Number.isFinite(Number(cal)) ? Math.round(Number(cal)) : null;
 
   return (
-    <View className="flex-row items-center justify-between border-b border-zinc-800/80 py-3 last:border-b-0">
-      <View className="flex-1 pr-2">
-        <Text className="text-base font-semibold text-white">
-          {activityLabel(workout)}
-        </Text>
-        <Text className="mt-0.5 text-sm text-[#888888]">
-          {formatDuration(durationSec)}
-          {cal != null && Number.isFinite(Number(cal))
-            ? ` · ${Math.round(Number(cal))} kcal burned`
-            : ""}
-        </Text>
-      </View>
-      <View className="flex-row items-center gap-1">
-        <Text className="text-sm text-[#888888]">
-          {when ? formatDate(when) : ""}
-        </Text>
-        <Ionicons name="chevron-forward" size={16} color="#666" />
-      </View>
+    <View className="mb-3">
+      <FrostedCard padding={14}>
+        <View className="flex-row items-center justify-between gap-2">
+          <View className="min-w-0 flex-1">
+            <Text className="text-base font-semibold text-white">
+              {activityLabel(workout)}
+            </Text>
+            <Text
+              className="mt-0.5 text-sm"
+              style={{ color: colors.textSecondary }}
+            >
+              {formatDuration(durationSec)}
+              {when ? ` · ${formatDate(when)}` : ""}
+            </Text>
+          </View>
+          <View className="flex-row items-center gap-1">
+            {calNum != null ? (
+              <Text
+                className="text-base font-bold"
+                style={{ color: colors.accentBright }}
+              >
+                {calNum}
+              </Text>
+            ) : null}
+            <Ionicons
+              name="chevron-forward"
+              size={16}
+              color={colors.textTertiary}
+            />
+          </View>
+        </View>
+      </FrostedCard>
     </View>
   );
 }

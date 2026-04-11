@@ -2,6 +2,8 @@ import type { ReactNode } from "react";
 import { Text, View } from "react-native";
 import Svg, { Circle, G } from "react-native-svg";
 
+import { colors } from "@/constants/colors";
+
 type MacroRingProps = {
   value: number;
   max: number;
@@ -9,6 +11,8 @@ type MacroRingProps = {
   label: string;
   size?: number;
   strokeWidth?: number;
+  /** Track (unfilled arc) color */
+  trackColor?: string;
   /** When set, replaces the default label + value in the center (e.g. calorie hero). */
   centerContent?: ReactNode;
 };
@@ -23,14 +27,14 @@ export function MacroRing({
   label,
   size = 56,
   strokeWidth = 6,
+  trackColor = colors.border,
   centerContent,
 }: MacroRingProps) {
   const radius = (size - strokeWidth) / 2;
   const cx = size / 2;
   const cy = size / 2;
   const circumference = 2 * Math.PI * radius;
-  const pct =
-    max > 0 ? Math.min(1, Math.max(0, value / max)) : 0;
+  const pct = max > 0 ? Math.min(1, Math.max(0, value / max)) : 0;
   const dash = circumference * pct;
 
   return (
@@ -42,7 +46,8 @@ export function MacroRing({
               cx={cx}
               cy={cy}
               r={radius}
-              stroke="#27272a"
+              stroke={trackColor}
+              opacity={0.85}
               strokeWidth={strokeWidth}
               fill="none"
             />
@@ -64,8 +69,15 @@ export function MacroRing({
         >
           {centerContent ?? (
             <>
-              <Text className="text-[9px] uppercase text-zinc-500">{label}</Text>
-              <Text className="text-xs font-semibold text-zinc-100">
+              <Text
+                className="text-[9px] uppercase tracking-wide"
+                style={{ color: colors.textTertiary }}
+              >
+                {label}
+              </Text>
+              <Text
+                className="text-xs font-semibold text-white"
+              >
                 {Math.round(value)}
               </Text>
             </>

@@ -1,6 +1,5 @@
 const path = require("path");
 
-// Ensure .env.local is on process.env before extra is computed (Metro HMR can miss new keys).
 try {
   require("dotenv").config({ path: path.join(__dirname, ".env.local") });
 } catch {
@@ -20,6 +19,9 @@ module.exports = {
     extra: {
       ...(appJson.expo.extra ?? {}),
       anthropicApiKey: process.env.EXPO_PUBLIC_ANTHROPIC_API_KEY ?? "",
+      eas: {
+        projectId: "3df62a5f-0284-4232-9e6a-396b84e96320",
+      },
     },
   },
 };

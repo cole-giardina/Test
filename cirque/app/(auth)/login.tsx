@@ -10,6 +10,9 @@ import {
   View,
 } from "react-native";
 
+import { AtmosphericBg } from "@/components/ui/AtmosphericBg";
+import { FrostedCard } from "@/components/ui/FrostedCard";
+import { colors } from "@/constants/colors";
 import {
   formatAuthErrorMessage,
   signInWithOtp,
@@ -25,8 +28,9 @@ export default function LoginScreen() {
   const [loadingMagic, setLoadingMagic] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [magicSent, setMagicSent] = useState(false);
-  /** Set when signUp succeeds but Supabase has not issued a session (e.g. email confirmation required). */
   const [signUpAwaitingEmail, setSignUpAwaitingEmail] = useState(false);
+  const [focusEmail, setFocusEmail] = useState(false);
+  const [focusPassword, setFocusPassword] = useState(false);
 
   async function handleEmailPassword() {
     setError(null);
@@ -68,122 +72,184 @@ export default function LoginScreen() {
     }
   }
 
+  const defaultBorder = "rgba(42, 69, 96, 0.6)";
+
   return (
     <KeyboardAvoidingView
-      className="flex-1 bg-zinc-950"
+      className="flex-1 bg-brand-bg"
       behavior={Platform.OS === "ios" ? "padding" : undefined}
     >
-      <ScrollView
-        keyboardShouldPersistTaps="handled"
-        contentContainerStyle={{
-          flexGrow: 1,
-          justifyContent: "center",
-          paddingHorizontal: 24,
-          paddingVertical: 48,
-        }}
-      >
-        <Text className="mb-2 text-center text-4xl font-bold tracking-tight text-zinc-50">
-          Cirque
-        </Text>
-        <Text className="mb-10 text-center text-sm text-zinc-500">
-          Nutrition & recovery for endurance athletes
-        </Text>
-
-        <Text className="mb-1 text-xs font-medium uppercase tracking-wide text-zinc-400">
-          Email
-        </Text>
-        <TextInput
-          className="mb-4 rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-3 text-base text-zinc-100"
-          placeholder="you@example.com"
-          placeholderTextColor="#71717a"
-          autoCapitalize="none"
-          autoCorrect={false}
-          keyboardType="email-address"
-          value={email}
-          onChangeText={setEmail}
-        />
-
-        <Text className="mb-1 text-xs font-medium uppercase tracking-wide text-zinc-400">
-          Password
-        </Text>
-        <TextInput
-          className="mb-6 rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-3 text-base text-zinc-100"
-          placeholder="••••••••"
-          placeholderTextColor="#71717a"
-          secureTextEntry
-          value={password}
-          onChangeText={setPassword}
-        />
-
-        {error ? (
-          <Text className="mb-4 rounded-lg bg-red-950/80 px-3 py-2 text-sm text-red-200">
-            {error}
-          </Text>
-        ) : null}
-
-        <Pressable
-          className="mb-3 rounded-xl bg-cyan-500 py-4 active:opacity-90"
-          onPress={handleEmailPassword}
-          disabled={loadingSignIn}
-        >
-          {loadingSignIn ? (
-            <ActivityIndicator color="#09090b" />
-          ) : (
-            <Text className="text-center text-base font-semibold text-zinc-950">
-              {isSignUpMode ? "Create account" : "Sign in"}
-            </Text>
-          )}
-        </Pressable>
-
-        <Pressable
-          className="mb-8 rounded-xl border border-zinc-700 py-4 active:opacity-90"
-          onPress={() => {
-            setIsSignUpMode(!isSignUpMode);
-            setError(null);
-            setSignUpAwaitingEmail(false);
+      <View className="flex-1">
+        <AtmosphericBg />
+        <ScrollView
+          keyboardShouldPersistTaps="handled"
+          contentContainerStyle={{
+            flexGrow: 1,
+            justifyContent: "center",
+            paddingHorizontal: 24,
+            paddingVertical: 48,
           }}
-          disabled={loadingSignIn}
         >
-          <Text className="text-center text-base font-medium text-zinc-300">
-            {isSignUpMode
-              ? "Have an account? Sign in"
-              : "Create account"}
-          </Text>
-        </Pressable>
-
-        <View className="mb-6 flex-row items-center gap-3">
-          <View className="h-px flex-1 bg-zinc-800" />
-          <Text className="text-xs uppercase text-zinc-500">or</Text>
-          <View className="h-px flex-1 bg-zinc-800" />
-        </View>
-
-        <Pressable
-          className="rounded-xl border border-zinc-700 bg-zinc-900 py-4 active:opacity-90"
-          onPress={handleMagicLink}
-          disabled={loadingMagic}
-        >
-          {loadingMagic ? (
-            <ActivityIndicator color="#fafafa" />
-          ) : (
-            <Text className="text-center text-base font-medium text-zinc-100">
-              Send magic link
+          <View className="relative mb-10 items-center">
+            <Text
+              className="text-center font-bold text-white"
+              style={{
+                fontSize: 40,
+                letterSpacing: 12,
+                lineHeight: 48,
+              }}
+            >
+              CIRQUE
             </Text>
+            <Text
+              className="mt-4 text-center text-[11px] font-medium uppercase tracking-[0.25em]"
+              style={{ color: colors.textTertiary }}
+            >
+              {`Fuel · Recover · Perform`}
+            </Text>
+          </View>
+
+          <FrostedCard
+            padding={0}
+            style={{
+              borderColor: focusEmail ? colors.accent : defaultBorder,
+            }}
+          >
+            <TextInput
+              className="px-4 py-4 text-base text-white"
+              placeholder="Email"
+              placeholderTextColor={colors.textTertiary}
+              autoCapitalize="none"
+              autoCorrect={false}
+              keyboardType="email-address"
+              value={email}
+              onChangeText={setEmail}
+              onFocus={() => setFocusEmail(true)}
+              onBlur={() => setFocusEmail(false)}
+            />
+          </FrostedCard>
+
+          <View className="h-3" />
+
+          <FrostedCard
+            padding={0}
+            style={{
+              borderColor: focusPassword ? colors.accent : defaultBorder,
+            }}
+          >
+            <TextInput
+              className="px-4 py-4 text-base text-white"
+              placeholder="Password"
+              placeholderTextColor={colors.textTertiary}
+              secureTextEntry
+              value={password}
+              onChangeText={setPassword}
+              onFocus={() => setFocusPassword(true)}
+              onBlur={() => setFocusPassword(false)}
+            />
+          </FrostedCard>
+
+          {error ? (
+            <Text
+              className="mb-4 mt-2 text-sm"
+              style={{ color: colors.danger }}
+            >
+              {error}
+            </Text>
+          ) : (
+            <View className="h-2" />
           )}
-        </Pressable>
 
-        {signUpAwaitingEmail ? (
-          <Text className="mt-4 text-center text-sm text-cyan-400">
-            Account created. Check your email to confirm your address, then sign in
-            here to continue to onboarding.
-          </Text>
-        ) : null}
+          <Pressable
+            className="mb-3 h-[52px] w-full items-center justify-center rounded-[12px] active:opacity-90"
+            style={{
+              backgroundColor: colors.accent,
+              borderWidth: 1,
+              borderColor: colors.accentBright,
+            }}
+            onPress={handleEmailPassword}
+            disabled={loadingSignIn}
+          >
+            {loadingSignIn ? (
+              <ActivityIndicator color={colors.textPrimary} />
+            ) : (
+              <Text className="text-center text-base font-bold text-white">
+                {isSignUpMode ? "Create account" : "Sign in"}
+              </Text>
+            )}
+          </Pressable>
 
-        {magicSent ? (
-          <Text className="mt-4 text-center text-sm text-cyan-400">
-            Check your email for the login link.
-          </Text>
-        ) : null}
-      </ScrollView>
+          <Pressable
+            className="mb-8 py-3 active:opacity-90"
+            onPress={() => {
+              setIsSignUpMode(!isSignUpMode);
+              setError(null);
+              setSignUpAwaitingEmail(false);
+            }}
+            disabled={loadingSignIn}
+          >
+            <Text
+              className="text-center text-sm font-medium"
+              style={{ color: colors.textSecondary }}
+            >
+              {isSignUpMode
+                ? "Have an account? Sign in"
+                : "Create account"}
+            </Text>
+          </Pressable>
+
+          <View className="mb-6 flex-row items-center gap-3">
+            <View
+              className="h-px flex-1"
+              style={{ backgroundColor: `${colors.border}99` }}
+            />
+            <Text
+              className="text-xs uppercase tracking-wide"
+              style={{ color: colors.textTertiary }}
+            >
+              or
+            </Text>
+            <View
+              className="h-px flex-1"
+              style={{ backgroundColor: `${colors.border}99` }}
+            />
+          </View>
+
+          <Pressable
+            className="mb-2 h-[52px] w-full items-center justify-center rounded-[12px] border bg-transparent active:opacity-90"
+            style={{ borderColor: colors.border }}
+            onPress={handleMagicLink}
+            disabled={loadingMagic}
+          >
+            {loadingMagic ? (
+              <ActivityIndicator color={colors.accentBright} />
+            ) : (
+              <Text className="text-center text-base font-semibold text-white">
+                Magic link
+              </Text>
+            )}
+          </Pressable>
+
+          {signUpAwaitingEmail ? (
+            <Text
+              className="mt-4 text-center text-sm"
+              style={{ color: colors.textSecondary }}
+            >
+              Account created. Check your email to confirm your address, then sign in
+              here to continue to onboarding.
+            </Text>
+          ) : null}
+
+          {magicSent ? (
+            <Text
+              className="mt-4 text-center text-sm"
+              style={{ color: colors.textSecondary }}
+            >
+              Check your email for the login link.
+            </Text>
+          ) : null}
+        </ScrollView>
+      </View>
     </KeyboardAvoidingView>
   );
 }

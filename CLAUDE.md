@@ -53,6 +53,29 @@ One line per table:
 
 ---
 
+## Design system
+
+- **Color tokens:** `cirque/constants/colors.ts` (source of truth) and **`cirque/tailwind.config.js`** (`brand.*` plus legacy **`cirque.*`** aliases for NativeWind classes such as `bg-brand-bg`, `text-cirque-ink`).
+- **`FrostedCard`** (`components/ui/FrostedCard.tsx`): base card primitive—semi-transparent slate surface, subtle border, optional top or left accent; **use for grouped content and list rows** instead of flat opaque `View`s.
+- **Background:** **`#0D1B2A`** deep slate-blue (not pure black). Secondary: `#112230`.
+- **Typography:** uppercase, letter-spaced labels; **bold white** for primary values and headings; secondary copy in cool blue-gray (`#A8C0D0`), tertiary/muted in `#5C7E8F`.
+- **Brand personality:** premium athletic tool—cool-toned, data-forward, high legibility (Whoop / high-end GPS aesthetic).
+- **`AtmosphericBg`** (`components/ui/AtmosphericBg.tsx`): low-opacity mountain peak lines for **auth** screens; pairs with the Cirque wordmark.
+- **Logo reference:** mountain / peak line with a **summit glow** (`accentGlow` `#AECFDC`); accents are cool slate-blue (`#5C7E8F`–`#7FB3C8`), not warm teal.
+- **Root shell:** `app/_layout.tsx` uses **`StatusBar`** **`light-content`** on the dark shell.
+
+| Token | Hex | Role |
+|-------|-----|------|
+| background | `#0D1B2A` | App / tab bar background |
+| surface | `#1A2E40` | Frosted cards, inputs |
+| border | `#2A4560` | Dividers, ring tracks, tab bar top border |
+| textPrimary | `#FFFFFF` | Headings, values |
+| textSecondary | `#A8C0D0` | Secondary labels |
+| accent / accentBright | `#5C7E8F` / `#7FB3C8` | CTAs, progress, tab active tint |
+| accentGlow | `#AECFDC` | Summit highlight, atmospheric art |
+
+---
+
 ## AI layer notes
 
 - **Claude API** is used for **food interpretation** (natural language → structured logs) and **post-workout refueling recommendations** (recent workouts, sweat/electrolyte signals when available, goals and restrictions).
@@ -75,10 +98,10 @@ One line per table:
 
 ## Dashboard
 
-- **Home tab** is **`app/(tabs)/index.tsx`**: dark (**`#0a0a0a`**), teal accents (**`#00D4A0`**), dense layout—greeting + date, calorie hero ring, electrolyte **StatCards**, optional macro bars, recent workouts, today’s food preview, AI recommendation card. **Pull-to-refresh** calls **`useDashboard().refresh()`**.
+- **Home tab** is **`app/(tabs)/index.tsx`**: **dark slate** theme (see **Design system** above), dense layout—greeting + date, calorie hero ring, electrolyte **StatCards**, optional macro bars, recent workouts, today’s food preview, AI recommendation card. **Pull-to-refresh** calls **`useDashboard().refresh()`**.
 - **`useDashboard`** (**`cirque/hooks/useDashboard.ts`**) aggregates data for the screen. **`profile`** comes from **`useAuth`** (no extra fetch). In parallel (**`Promise.all`**), it loads **`getTodaysFoodLogs`**, **`getDailyTotals(userId, today)`** (local **`YYYY-MM-DD`** via **`getTodayDateString()`** in **`lib/formatters.ts`**), **`getRecentWorkouts`** and **`getLatestAiRecommendation`** from **`lib/dashboardData.ts`**. Each query **`.catch`es** so one failure does not wipe the rest. Waits for **`authLoading`** from **`AuthContext`** before fetching.
 - **UI building blocks**: **`CalorieRingHero`** (wraps **`MacroRing`** with **`centerContent`** for kcal + satellites for P/C/F grams), **`StatCard`**, **`MacroBar`**, **`SectionHeader`**, **`WorkoutRow`**, **`RecommendationCard`** under **`components/ui/`**.
-- **Electrolyte daily targets** (dashboard bars): **sodium 1500 mg**, **potassium 3500 mg**, **magnesium 400 mg**. Bar fill = **min(100%, consumed ÷ target × 100)**; color **teal** if at or under target, **amber** (`#F59E0B`) if over.
+- **Electrolyte daily targets** (dashboard bars): **sodium 1500 mg**, **potassium 3500 mg**, **magnesium 400 mg**. Bar fill = **min(100%, consumed ÷ target × 100)**; fill uses per-electrolyte tokens from **`colors`** if at or under target, **warning** (`#E8A838`) if over.
 - **Macro goals** (from profile): **protein** = **`profile.daily_protein_g`** (fallback **120 g** in bars); **carbs** = **`(daily_calorie_goal × 0.5) / 4`**; **fat** = **`(daily_calorie_goal × 0.25) / 9`**. The **macro breakdown** block is **hidden** unless **`profile.daily_calorie_goal`** is set (> 0).
 - **Calorie ring**: if **no calorie goal**, the ring shows **no progress arc** (max placeholder **1**); center still shows **consumed kcal** only.
 - **Helpers** (**`lib/formatters.ts`**): **`formatDuration`**, **`formatDate`** (Today / Yesterday / short weekday), **`getGreeting`**, **`formatFirstName`**, **`getTodayDateString`**.
@@ -89,15 +112,26 @@ One line per table:
 ## Dev build (iOS / EAS)
 
 - **Bundle ID:** **`com.cirque.app`** (`ios.bundleIdentifier` in **`app.json`**).
+- **URL scheme:** **`cirque`** (`scheme` in **`app.json`**) for deep links.
+- **EAS project ID:** set in **`app.json`** under **`expo.extra.eas.projectId`** after **`eas init`** (link the project once; use the same ID in Expo dashboard).
+- **Apple Developer Team ID:** chosen during **first** **`eas build`** when EAS prompts for credentials, or visible in [Apple Developer](https://developer.apple.com) → Membership / Keys; also stored in Expo project credentials after setup.
 - **EAS profiles** (**`eas.json`**): **`development`** — dev client, internal distribution, **physical device** (`ios.simulator: false`); **`simulator`** — dev client for **iOS Simulator**; **`preview`** — internal; **`production`** — App Store (`store`).
-- **Apple Developer Program:** a **paid** membership (**$99/year**) is required for device builds, TestFlight, and App Store; EAS uses your Apple account for signing.
-- **HealthKit:** **`ios.infoPlist`** usage strings, **`ios.entitlements`** (`healthkit`, `healthkit.background-delivery`), **`deploymentTarget` `16.0`** via **`expo-build-properties`**, and the **`apple-health`** config plugin are declared in **`app.json`**. **`lib/healthkit.ts`** is a **scaffold** only (TODOs)—runtime integration uses the **`apple-health`** package (the npm package named **`expo-health`** is an empty placeholder; do not use it).
+- **Dev client:** **`expo-dev-client`** is in **`package.json`** and listed in **`app.json`** **`plugins`** (with **`expo-router`**, **`expo-build-properties`**, **`apple-health`**, etc.).
+- **HealthKit:** **`ios.infoPlist`** usage strings (**`NSHealthShareUsageDescription`**, **`NSHealthUpdateUsageDescription`**), **`ios.entitlements`** (`healthkit`, `healthkit.background-delivery`), **`deploymentTarget` `16.0`** via **`expo-build-properties`**, and the **`apple-health`** config plugin are declared in **`app.json`**. **`lib/healthkit.ts`** is a **scaffold** only (TODOs)—runtime permission tests use **`apple-health`** (`AppleHealth.requestAuthorization`); do **not** use the npm package **`expo-health`** (placeholder).
 - **Deferred native packages (dev client only):** **`apple-health`**, **`expo-camera`**, **`expo-barcode-scanner`**—not available in Expo Go; rebuild the dev client after native changes.
-- **EAS CLI:** installed as a **devDependency** (`eas-cli`); use **`cd cirque && npx eas …`** (global `npm i -g eas-cli` is optional if you prefer).
-- **Build commands (after `eas login` and Apple account ready):**
-  - Device: `cd cirque && eas build --profile development --platform ios`
-  - Simulator: `cd cirque && eas build --profile simulator --platform ios`
-- **Apple Team ID:** EAS will prompt for it (or read from **`eas.json`** / credentials) when you configure iOS credentials—needed for provisioning profiles and signing; set it during the first **`eas build`** or in the Expo dashboard under project credentials.
+- **EAS CLI:** use **`cd cirque && npx eas …`** (or global **`eas`**).
+
+**Commands (local machine)**
+
+1. **Log in:** `cd cirque && npx eas login` (create an account at [expo.dev](https://expo.dev) if needed).
+2. **Link project:** `npx eas init` (accept defaults; updates **`app.json`** with **`projectId`**).
+3. **iOS device dev build:** `npx eas build --profile development --platform ios` — allow EAS to generate/manage credentials; pick your Apple team when prompted. Build runs in the cloud (~10–20 minutes). Watch the first minutes for credential or config errors.
+4. **Install on iPhone:** open the build page from EAS (QR code or link), install the **.ipa**, then **Settings → General → VPN & Device Management** → trust the developer profile for your Apple ID.
+5. **Start Metro for dev client:** `npx expo start --dev-client` (iPhone and Mac on the same Wi‑Fi; open the Cirque dev build and connect to the bundler).
+
+**HealthKit smoke test (temporary UI)**
+
+- Profile tab includes a **“Test HealthKit (temporary)”** button (iOS only) calling **`apple-health`** authorization for workouts, active energy, heart rate, walking/running distance, cycling distance. **Remove** after confirming the system permission sheet and **`AuthorizationResult`** in logs. **HealthKit confirmed working on device:** *pending — set to yes/no after testing.*
 
 ---
 
