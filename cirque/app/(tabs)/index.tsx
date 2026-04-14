@@ -54,9 +54,17 @@ function initialsFromName(name: string | null | undefined): string {
 
 export default function DashboardTab() {
   const insets = useSafeAreaInsets();
-  const { data, isLoading, refresh, generateRefuel } = useDashboard();
+  const {
+    data,
+    isLoading,
+    refresh,
+    generateRefuel,
+    setRecommendationFeedback,
+    refuelCooldownRemainingSec,
+  } = useDashboard();
   const [refreshing, setRefreshing] = useState(false);
   const [refuelBusy, setRefuelBusy] = useState(false);
+  const [feedbackBusy, setFeedbackBusy] = useState(false);
 
   const profile = data.profile;
   const totals = data.dailyTotals ?? zeroTotals();
@@ -90,6 +98,9 @@ export default function DashboardTab() {
   }
 
   async function onGenerateRefuel() {
+    if (refuelCooldownRemainingSec > 0) {
+      return;
+    }
     setRefuelBusy(true);
     try {
       await generateRefuel();
@@ -102,6 +113,29 @@ export default function DashboardTab() {
       setRefuelBusy(false);
     }
   }
+
+  async function onRecommendationFeedback(helpful: boolean) {
+    const recommendation = data.latestRecommendation;
+    if (!recommendation?.id) {
+      return;
+    }
+    setFeedbackBusy(true);
+    try {
+      await setRecommendationFeedback(recommendation.id, helpful);
+    } catch (e) {
+      Alert.alert(
+        "Could not save feedback",
+        e instanceof Error ? e.message : "Please try again.",
+      );
+    } finally {
+      setFeedbackBusy(false);
+    }
+  }
+
+  const cooldownLabel =
+    refuelCooldownRemainingSec > 0
+      ? `Wait ${Math.ceil(refuelCooldownRemainingSec / 60)}m`
+      : "Get advice";
 
   function goToLog() {
     router.push("/(tabs)/log");
@@ -323,9 +357,9 @@ export default function DashboardTab() {
           <View className="mb-5">
             <SectionHeader
               title="Your recommendation"
-              actionLabel={refuelBusy ? undefined : "Get advice"}
+              actionLabel={refuelBusy ? undefined : cooldownLabel}
               onAction={
-                refuelBusy
+                refuelBusy || refuelCooldownRemainingSec > 0
                   ? undefined
                   : () => {
                       void onGenerateRefuel();
@@ -342,7 +376,13 @@ export default function DashboardTab() {
                 </View>
               </FrostedCard>
             ) : (
-              <RecommendationCard recommendation={data.latestRecommendation} />
+              <RecommendationCard
+                recommendation={data.latestRecommendation}
+                onFeedback={(helpful) => {
+                  void onRecommendationFeedback(helpful);
+                }}
+                feedbackBusy={feedbackBusy}
+              />
             )}
           </View>
         </ScrollView>

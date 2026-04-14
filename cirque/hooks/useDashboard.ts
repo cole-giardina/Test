@@ -4,7 +4,10 @@ import { getDailyTotals, getTodaysFoodLogs } from "@/lib/foodLog";
 import type { DailyTotals } from "@/lib/foodLog";
 
 export type { DailyTotals } from "@/lib/foodLog";
-import { getLatestAiRecommendation } from "@/lib/dashboardData";
+import {
+  getLatestAiRecommendation,
+  setRecommendationHelpful,
+} from "@/lib/dashboardData";
 import { generateRefuelAdvice } from "@/lib/refuel";
 import { getWorkouts } from "@/lib/workoutSync";
 import { getTodayDateString } from "@/lib/formatters";
@@ -38,10 +41,17 @@ export function useDashboard(): {
   refresh: () => Promise<void>;
   /** Calls Edge Function `refuel`, then reloads latest recommendation. */
   generateRefuel: () => Promise<void>;
+  setRecommendationFeedback: (
+    recommendationId: string,
+    helpful: boolean,
+  ) => Promise<void>;
+  refuelCooldownRemainingSec: number;
 } {
   const { profile, isLoading: authLoading } = useAuth();
   const [data, setData] = useState<DashboardData>(emptyData);
   const [isLoading, setIsLoading] = useState(true);
+  const [refuelCooldownRemainingSec, setRefuelCooldownRemainingSec] = useState(0);
+  const COOLDOWN_SECONDS = 10 * 60;
 
   const load = useCallback(
     async (options?: { silent?: boolean }) => {
@@ -104,6 +114,37 @@ export function useDashboard(): {
     await load({ silent: true });
   }, [profile?.id, load]);
 
+  const setRecommendationFeedback = useCallback(
+    async (recommendationId: string, helpful: boolean) => {
+      await setRecommendationHelpful(recommendationId, helpful);
+      await load({ silent: true });
+    },
+    [load],
+  );
+
+  useEffect(() => {
+    const recommendation = data.latestRecommendation;
+    if (!recommendation?.created_at) {
+      setRefuelCooldownRemainingSec(0);
+      return;
+    }
+
+    const compute = () => {
+      const createdMs = Date.parse(recommendation.created_at);
+      if (Number.isNaN(createdMs)) {
+        setRefuelCooldownRemainingSec(0);
+        return;
+      }
+      const elapsedSec = Math.floor((Date.now() - createdMs) / 1000);
+      const remaining = Math.max(0, COOLDOWN_SECONDS - elapsedSec);
+      setRefuelCooldownRemainingSec(remaining);
+    };
+
+    compute();
+    const id = setInterval(compute, 1000);
+    return () => clearInterval(id);
+  }, [data.latestRecommendation]);
+
   useEffect(() => {
     if (authLoading) {
       setIsLoading(true);
@@ -117,5 +158,7 @@ export function useDashboard(): {
     isLoading,
     refresh: () => load({ silent: true }),
     generateRefuel,
+    setRecommendationFeedback,
+    refuelCooldownRemainingSec,
   };
 }

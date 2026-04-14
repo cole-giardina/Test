@@ -21,3 +21,17 @@ export async function getLatestAiRecommendation(
   }
   return data;
 }
+
+export async function setRecommendationHelpful(
+  recommendationId: string,
+  helpful: boolean,
+): Promise<void> {
+  const { error } = await supabase
+    .from("ai_recommendations")
+    .update({ was_helpful: helpful })
+    .eq("id", recommendationId);
+
+  if (error) {
+    throw new Error(error.message);
+  }
+}

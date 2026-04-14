@@ -6,6 +6,20 @@ export type GenerateRefuelParams = {
   workoutId?: string | null;
 };
 
+function mapRefuelHttpError(message: string): string {
+  const m = message.toLowerCase();
+  if (m.includes("429")) {
+    return "Refuel is on cooldown for a few minutes. Please try again shortly.";
+  }
+  if (m.includes("non-2xx")) {
+    return "Refuel service failed. Confirm the `refuel` Edge Function is deployed and `ANTHROPIC_API_KEY` is set in Supabase secrets.";
+  }
+  if (m.includes("failed to fetch") || m.includes("network")) {
+    return "Could not reach Supabase Functions. Check network connectivity and your Supabase URL.";
+  }
+  return message;
+}
+
 /**
  * Calls the `refuel` Edge Function: builds context from profile, latest workout, last-24h food,
  * generates text with Claude, persists `ai_recommendations` with `context_snapshot`.
@@ -23,7 +37,7 @@ export async function generateRefuelAdvice(
   });
 
   if (error) {
-    throw new Error(error.message ?? "Refuel request failed");
+    throw new Error(mapRefuelHttpError(error.message ?? "Refuel request failed"));
   }
   if (data && typeof data === "object" && "error" in data && data.error) {
     throw new Error(String(data.error));

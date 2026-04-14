@@ -3,6 +3,7 @@ import { corsHeaders } from "../_shared/cors.ts";
 
 const MODEL = "claude-sonnet-4-20250514";
 const MAX_TOKENS = 900;
+const COOLDOWN_SECONDS = 10 * 60;
 
 const SYSTEM_PROMPT = `You are Cirque's endurance nutrition coach. Give practical post-training refueling guidance: hydration, carbs, protein, and electrolytes when relevant. Be concise (2–4 short paragraphs), actionable, and specific to the workout and what they've eaten if data is provided. No medical diagnoses. Plain text only — no markdown headings or bullet lists unless truly helpful.`;
 
@@ -122,6 +123,38 @@ Deno.serve(async (req) => {
   }
 
   const p = profile as ProfileRow;
+  const { data: latestExisting, error: latestErr } = await admin
+    .from("ai_recommendations")
+    .select("id, created_at")
+    .eq("user_id", p.id)
+    .eq("trigger_type", "post_workout_refuel")
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (latestErr) {
+    console.error("[refuel] latest existing", latestErr);
+  }
+  if (latestExisting?.created_at) {
+    const latestMs = Date.parse(String(latestExisting.created_at));
+    if (!Number.isNaN(latestMs)) {
+      const elapsedSec = Math.floor((Date.now() - latestMs) / 1000);
+      const remaining = COOLDOWN_SECONDS - elapsedSec;
+      if (remaining > 0) {
+        return new Response(
+          JSON.stringify({
+            error: `Please wait ${Math.ceil(remaining / 60)} minute(s) before requesting new advice.`,
+            retry_after_seconds: remaining,
+          }),
+          {
+            status: 429,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          },
+        );
+      }
+    }
+  }
+
   const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
 
   const { data: foodRows, error: foodError } = await admin
