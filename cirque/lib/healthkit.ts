@@ -1,4 +1,4 @@
-import { HealthKitQuery, QuantitySample } from "apple-health";
+import { HealthKitQuery } from "apple-health";
 import AppleHealth from "apple-health";
 import { Platform } from "react-native";
 
@@ -113,6 +113,24 @@ export async function requestHealthKitPermissions(): Promise<boolean> {
   }
 }
 
+/** Plain row from `SampleConverters.convertQuantitySample` (native `execute()`, not `executeSamples()`). */
+type NativeQuantityRow = {
+  value?: number;
+  quantityType?: string;
+};
+
+async function executeQuantityQueryPlain(
+  config: ConstructorParameters<typeof HealthKitQuery>[0],
+): Promise<NativeQuantityRow[]> {
+  const query = new HealthKitQuery(config);
+  const native = (
+    query as unknown as {
+      native: { execute: () => Promise<NativeQuantityRow[]> };
+    }
+  ).native;
+  return native.execute();
+}
+
 type NativeWorkoutRow = {
   uuid?: string;
   workoutActivityType?: string;
@@ -188,22 +206,18 @@ export async function fetchWorkoutHeartRate(
     return null;
   }
   try {
-    const query = new HealthKitQuery({
+    const rows = await executeQuantityQueryPlain({
       type: "heartRate",
       kind: "quantity",
       startDate: workoutStartDate,
       endDate: workoutEndDate,
       ascending: true,
     });
-    const samples = await query.execute();
-    const hr = samples.filter(
-      (s): s is QuantitySample => s.__typename === "QuantitySample",
-    );
-    if (hr.length === 0) {
+    if (rows.length === 0) {
       return null;
     }
-    const sum = hr.reduce((acc, s) => acc + s.value, 0);
-    return sum / hr.length;
+    const sum = rows.reduce((acc, r) => acc + Number(r.value ?? 0), 0);
+    return sum / rows.length;
   } catch (e) {
     console.error("[healthkit] fetchWorkoutHeartRate", e);
     return null;
@@ -219,20 +233,16 @@ export async function fetchTodaysActiveCalories(): Promise<number> {
     const start = new Date();
     start.setHours(0, 0, 0, 0);
     const end = new Date();
-    const query = new HealthKitQuery({
+    const rows = await executeQuantityQueryPlain({
       type: "activeEnergyBurned",
       kind: "quantity",
       startDate: start,
       endDate: end,
       ascending: true,
     });
-    const samples = await query.execute();
-    const quantities = samples.filter(
-      (s): s is QuantitySample => s.__typename === "QuantitySample",
-    );
     let total = 0;
-    for (const s of quantities) {
-      total += s.value;
+    for (const r of rows) {
+      total += Number(r.value ?? 0);
     }
     return Math.round(total * 10) / 10;
   } catch (e) {
