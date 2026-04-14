@@ -5,6 +5,7 @@ import type { DailyTotals } from "@/lib/foodLog";
 
 export type { DailyTotals } from "@/lib/foodLog";
 import { getLatestAiRecommendation } from "@/lib/dashboardData";
+import { generateRefuelAdvice } from "@/lib/refuel";
 import { getWorkouts } from "@/lib/workoutSync";
 import { getTodayDateString } from "@/lib/formatters";
 import { useAuth } from "@/hooks/useAuth";
@@ -35,6 +36,8 @@ export function useDashboard(): {
   data: DashboardData;
   isLoading: boolean;
   refresh: () => Promise<void>;
+  /** Calls Edge Function `refuel`, then reloads latest recommendation. */
+  generateRefuel: () => Promise<void>;
 } {
   const { profile, isLoading: authLoading } = useAuth();
   const [data, setData] = useState<DashboardData>(emptyData);
@@ -93,6 +96,14 @@ export function useDashboard(): {
     [profile, authLoading],
   );
 
+  const generateRefuel = useCallback(async () => {
+    if (!profile?.id) {
+      return;
+    }
+    await generateRefuelAdvice();
+    await load({ silent: true });
+  }, [profile?.id, load]);
+
   useEffect(() => {
     if (authLoading) {
       setIsLoading(true);
@@ -105,5 +116,6 @@ export function useDashboard(): {
     data,
     isLoading,
     refresh: () => load({ silent: true }),
+    generateRefuel,
   };
 }

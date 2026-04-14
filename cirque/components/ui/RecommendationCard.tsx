@@ -16,7 +16,8 @@ export function RecommendationCard({ recommendation }: RecommendationCardProps) 
           className="text-sm leading-relaxed"
           style={{ color: colors.textSecondary }}
         >
-          Log your first workout to get personalized refueling advice.
+          Tap “Get advice” for personalized refueling tips based on your latest
+          training and what you have eaten recently.
         </Text>
       </FrostedCard>
     );

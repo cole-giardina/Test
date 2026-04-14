@@ -2,6 +2,7 @@ import { router } from "expo-router";
 import { useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -53,8 +54,9 @@ function initialsFromName(name: string | null | undefined): string {
 
 export default function DashboardTab() {
   const insets = useSafeAreaInsets();
-  const { data, isLoading, refresh } = useDashboard();
+  const { data, isLoading, refresh, generateRefuel } = useDashboard();
   const [refreshing, setRefreshing] = useState(false);
+  const [refuelBusy, setRefuelBusy] = useState(false);
 
   const profile = data.profile;
   const totals = data.dailyTotals ?? zeroTotals();
@@ -85,6 +87,20 @@ export default function DashboardTab() {
     setRefreshing(true);
     await refresh();
     setRefreshing(false);
+  }
+
+  async function onGenerateRefuel() {
+    setRefuelBusy(true);
+    try {
+      await generateRefuel();
+    } catch (e) {
+      Alert.alert(
+        "Could not generate advice",
+        e instanceof Error ? e.message : "Try again in a moment.",
+      );
+    } finally {
+      setRefuelBusy(false);
+    }
   }
 
   function goToLog() {
@@ -305,8 +321,29 @@ export default function DashboardTab() {
           </View>
 
           <View className="mb-5">
-            <SectionHeader title="Your recommendation" />
-            <RecommendationCard recommendation={data.latestRecommendation} />
+            <SectionHeader
+              title="Your recommendation"
+              actionLabel={refuelBusy ? undefined : "Get advice"}
+              onAction={
+                refuelBusy
+                  ? undefined
+                  : () => {
+                      void onGenerateRefuel();
+                    }
+              }
+            />
+            {refuelBusy ? (
+              <FrostedCard>
+                <View className="flex-row items-center gap-3 py-2">
+                  <ActivityIndicator color={colors.accentBright} />
+                  <Text className="text-sm" style={{ color: colors.textSecondary }}>
+                    Generating refuel guidance…
+                  </Text>
+                </View>
+              </FrostedCard>
+            ) : (
+              <RecommendationCard recommendation={data.latestRecommendation} />
+            )}
           </View>
         </ScrollView>
       )}

@@ -12,3 +12,6 @@ verify_jwt = true
 
 [functions.strava-sync]
 verify_jwt = true
+
+[functions.refuel]
+verify_jwt = true
