@@ -5,7 +5,7 @@ export type SaveFoodLogEntry = {
   workout_id?: string;
   meal_type: string;
   description: string;
-  source: "ai";
+  source: "ai" | "nutritionix" | "manual";
   calories: number;
   protein_g: number;
   carbs_g: number;

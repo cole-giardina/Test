@@ -85,7 +85,7 @@ One line per table:
 
 ## Food logging
 
-- **Natural-language input** on **`app/(tabs)/log.tsx`**: the user describes what they ate. **`expo-camera`** and **`expo-barcode-scanner`** are installed for the **development build** only—they do **not** work in **Expo Go**; wire them in the dev client when ready.
+- **Natural-language input** on **`app/(tabs)/log.tsx`**: the user describes what they ate. **`expo-camera`** is available in the **development build** (not Expo Go); barcode scanning can be added later with **`expo-barcode-scanner`** if needed.
 - **Claude parsing** lives in **`cirque/lib/foodAI.ts`**: **`parseFoodEntry(description: string, mealType: string)`** calls the Anthropic Messages API with model **`claude-sonnet-4-20250514`**, `max_tokens: 500`, a fixed **system** prompt (endurance-focused estimates, JSON-only), and a **user** prompt that asks for a strict JSON shape (description, macros, electrolytes in mg, `confidence`, `notes`). The client parses JSON (including markdown code fences if the model wraps the payload) and returns **`ParsedFoodNutrition`**; failures throw descriptive errors.
 - **Environment**: set **`EXPO_PUBLIC_ANTHROPIC_API_KEY`** in **`cirque/.env.local`** (see **`.env.example`**). Restart Expo after changes.
 - **Preview-before-save**: after a successful parse, **`NutritionPreviewCard`** shows the estimate with **Save** / **Edit**; **Save** persists via **`saveFoodLog`** in **`cirque/lib/foodLog.ts`**. **Edit** dismisses the preview and restores the original text in the input.
@@ -99,26 +99,38 @@ One line per table:
 ## Dashboard
 
 - **Home tab** is **`app/(tabs)/index.tsx`**: **dark slate** theme (see **Design system** above), dense layout—greeting + date, calorie hero ring, electrolyte **StatCards**, optional macro bars, recent workouts, today’s food preview, AI recommendation card. **Pull-to-refresh** calls **`useDashboard().refresh()`**.
-- **`useDashboard`** (**`cirque/hooks/useDashboard.ts`**) aggregates data for the screen. **`profile`** comes from **`useAuth`** (no extra fetch). In parallel (**`Promise.all`**), it loads **`getTodaysFoodLogs`**, **`getDailyTotals(userId, today)`** (local **`YYYY-MM-DD`** via **`getTodayDateString()`** in **`lib/formatters.ts`**), **`getRecentWorkouts`** and **`getLatestAiRecommendation`** from **`lib/dashboardData.ts`**. Each query **`.catch`es** so one failure does not wipe the rest. Waits for **`authLoading`** from **`AuthContext`** before fetching.
+- **`useDashboard`** (**`cirque/hooks/useDashboard.ts`**) aggregates data for the screen. **`profile`** comes from **`useAuth`** (no extra fetch). In parallel (**`Promise.all`**), it loads **`getTodaysFoodLogs`**, **`getDailyTotals(userId, today)`** (local **`YYYY-MM-DD`** via **`getTodayDateString()`** in **`lib/formatters.ts`**), **`getWorkouts(userId, 3)`** from **`lib/workoutSync.ts`**, and **`getLatestAiRecommendation`** from **`lib/dashboardData.ts`**. Each query **`.catch`es** so one failure does not wipe the rest. Waits for **`authLoading`** from **`AuthContext`** before fetching.
 - **UI building blocks**: **`CalorieRingHero`** (wraps **`MacroRing`** with **`centerContent`** for kcal + satellites for P/C/F grams), **`StatCard`**, **`MacroBar`**, **`SectionHeader`**, **`WorkoutRow`**, **`RecommendationCard`** under **`components/ui/`**.
 - **Electrolyte daily targets** (dashboard bars): **sodium 1500 mg**, **potassium 3500 mg**, **magnesium 400 mg**. Bar fill = **min(100%, consumed ÷ target × 100)**; fill uses per-electrolyte tokens from **`colors`** if at or under target, **warning** (`#E8A838`) if over.
 - **Macro goals** (from profile): **protein** = **`profile.daily_protein_g`** (fallback **120 g** in bars); **carbs** = **`(daily_calorie_goal × 0.5) / 4`**; **fat** = **`(daily_calorie_goal × 0.25) / 9`**. The **macro breakdown** block is **hidden** unless **`profile.daily_calorie_goal`** is set (> 0).
 - **Calorie ring**: if **no calorie goal**, the ring shows **no progress arc** (max placeholder **1**); center still shows **consumed kcal** only.
-- **Helpers** (**`lib/formatters.ts`**): **`formatDuration`**, **`formatDate`** (Today / Yesterday / short weekday), **`getGreeting`**, **`formatFirstName`**, **`getTodayDateString`**.
+- **Helpers** (**`lib/formatters.ts`**): **`formatDuration`**, **`formatDistance`** (meters → `412m` / `12.4km`), **`formatDate`** (Today / Yesterday / short weekday), **`getGreeting`**, **`formatFirstName`**, **`getTodayDateString`**.
 - **AI recommendation card**: **`RecommendationCard`** shows copy from **`ai_recommendations`** when present; otherwise prompts the user to log a workout for refueling advice. **`ai_recommendations`** rows will populate once the **AI pipeline** and **HealthKit**-driven flows exist; until then the empty state is expected.
+
+---
+
+## HealthKit & workout sync
+
+- **`lib/healthkit.ts`:** Uses **`apple-health`** (`HealthKitQuery`, `AppleHealth.requestAuthorization`). Exports **`HealthKitWorkout`**, **`requestHealthKitPermissions`**, **`fetchRecentWorkouts`**, **`fetchWorkoutHeartRate`**, **`fetchTodaysActiveCalories`** (alias **`fetchTodaysCaloriesBurned`**), **`mapActivityType`**. Queries use string identifiers such as **`workout`**, **`heartRate`**, **`activeEnergyBurned`** (not `HK*` C symbols—the package wraps native types).
+- **`lib/workoutSync.ts`:** **`syncHealthKitWorkouts(userId)`** pulls up to 50 recent HK workouts, deduplicates, inserts into **`workouts`** with **`source: 'healthkit'`**. **`getWorkouts(userId, limit)`** reads from Supabase for UI.
+- **Dedup:** Before insert, check for an existing row with **`source = 'healthkit'`** and **`raw_data @> '{"uuid":"<HKSampleUUID>"}'`** (Supabase **`.contains('raw_data', { uuid })`**). Same Apple workout UUID must not insert twice.
+- **`hooks/useHealthKit.ts`:** Permission probe via **`getAuthorizationStatus`**, **`requestPermissions`**, **`syncWorkouts`**, **`lastSyncResult`**, **`lastSyncAt`**.
+- **`context/AuthContext.tsx`:** After **`profiles`** load on iOS, **`syncHealthKitWorkouts(profile.id)`** runs in the background (errors logged only; never blocks auth).
+- **Workouts tab** (**`app/(tabs)/workouts.tsx`**): Lists Supabase workouts, pull-to-refresh and header sync; **`Profile`** has **Health & sync** (temporary HK test button removed).
+- **HealthKit confirmed working on device:** **YES** (permissions validated); full sync requires a **physical device** with data in the Health app.
 
 ---
 
 ## Dev build (iOS / EAS)
 
-- **Bundle ID:** **`com.cirque.app`** (`ios.bundleIdentifier` in **`app.json`**).
+- **Bundle ID:** see **`ios.bundleIdentifier`** in **`app.json`** (e.g. team-specific id).
 - **URL scheme:** **`cirque`** (`scheme` in **`app.json`**) for deep links.
 - **EAS project ID:** set in **`app.json`** under **`expo.extra.eas.projectId`** after **`eas init`** (link the project once; use the same ID in Expo dashboard).
 - **Apple Developer Team ID:** chosen during **first** **`eas build`** when EAS prompts for credentials, or visible in [Apple Developer](https://developer.apple.com) → Membership / Keys; also stored in Expo project credentials after setup.
 - **EAS profiles** (**`eas.json`**): **`development`** — dev client, internal distribution, **physical device** (`ios.simulator: false`); **`simulator`** — dev client for **iOS Simulator**; **`preview`** — internal; **`production`** — App Store (`store`).
 - **Dev client:** **`expo-dev-client`** is in **`package.json`** and listed in **`app.json`** **`plugins`** (with **`expo-router`**, **`expo-build-properties`**, **`apple-health`**, etc.).
-- **HealthKit:** **`ios.infoPlist`** usage strings (**`NSHealthShareUsageDescription`**, **`NSHealthUpdateUsageDescription`**), **`ios.entitlements`** (`healthkit`, `healthkit.background-delivery`), **`deploymentTarget` `16.0`** via **`expo-build-properties`**, and the **`apple-health`** config plugin are declared in **`app.json`**. **`lib/healthkit.ts`** is a **scaffold** only (TODOs)—runtime permission tests use **`apple-health`** (`AppleHealth.requestAuthorization`); do **not** use the npm package **`expo-health`** (placeholder).
-- **Deferred native packages (dev client only):** **`apple-health`**, **`expo-camera`**, **`expo-barcode-scanner`**—not available in Expo Go; rebuild the dev client after native changes.
+- **HealthKit:** **`ios.infoPlist`** usage strings (**`NSHealthShareUsageDescription`**, **`NSHealthUpdateUsageDescription`**), **`ios.entitlements`** (`healthkit`, `healthkit.background-delivery`), **`deploymentTarget` `16.0`** via **`expo-build-properties`**, and the **`apple-health`** config plugin are declared in **`app.json`**. Runtime access uses **`apple-health`** (see **HealthKit & workout sync** above); do **not** use the npm package **`expo-health`** (placeholder).
+- **Deferred native packages (dev client only):** **`apple-health`**, **`expo-camera`**—not available in Expo Go; rebuild the dev client after native changes.
 - **EAS CLI:** use **`cd cirque && npx eas …`** (or global **`eas`**).
 
 **Commands (local machine)**
@@ -129,9 +141,7 @@ One line per table:
 4. **Install on iPhone:** open the build page from EAS (QR code or link), install the **.ipa**, then **Settings → General → VPN & Device Management** → trust the developer profile for your Apple ID.
 5. **Start Metro for dev client:** `npx expo start --dev-client` (iPhone and Mac on the same Wi‑Fi; open the Cirque dev build and connect to the bundler).
 
-**HealthKit smoke test (temporary UI)**
-
-- Profile tab includes a **“Test HealthKit (temporary)”** button (iOS only) calling **`apple-health`** authorization for workouts, active energy, heart rate, walking/running distance, cycling distance. **Remove** after confirming the system permission sheet and **`AuthorizationResult`** in logs. **HealthKit confirmed working on device:** *pending — set to yes/no after testing.*
+**Before testing sync:** On device, **Settings → Health → Data Access & Devices → Cirque** — enable workout and any metrics you want imported.
 
 ---
 

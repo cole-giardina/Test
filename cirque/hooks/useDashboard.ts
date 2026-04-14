@@ -4,10 +4,8 @@ import { getDailyTotals, getTodaysFoodLogs } from "@/lib/foodLog";
 import type { DailyTotals } from "@/lib/foodLog";
 
 export type { DailyTotals } from "@/lib/foodLog";
-import {
-  getLatestAiRecommendation,
-  getRecentWorkouts,
-} from "@/lib/dashboardData";
+import { getLatestAiRecommendation } from "@/lib/dashboardData";
+import { getWorkouts } from "@/lib/workoutSync";
 import { getTodayDateString } from "@/lib/formatters";
 import { useAuth } from "@/hooks/useAuth";
 import type {
@@ -73,7 +71,7 @@ export function useDashboard(): {
         console.error("[useDashboard] dailyTotals", e);
         return null as DailyTotals | null;
       }),
-      getRecentWorkouts(userId, 3).catch((e) => {
+      getWorkouts(userId, 3).catch((e) => {
         console.error("[useDashboard] recentWorkouts", e);
         return [] as Workout[];
       }),

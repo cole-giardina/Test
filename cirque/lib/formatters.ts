@@ -1,3 +1,14 @@
+/** Distance in meters → `412m` or `12.4km`. */
+export function formatDistance(meters: number | null): string {
+  if (meters == null || !Number.isFinite(meters)) {
+    return "—";
+  }
+  if (meters < 1000) {
+    return `${Math.round(meters)}m`;
+  }
+  return `${(meters / 1000).toFixed(1)}km`;
+}
+
 /** Format duration in seconds as "1h 24m" or "45m" or "0m". */
 export function formatDuration(seconds: number): string {
   if (!Number.isFinite(seconds) || seconds < 0) {

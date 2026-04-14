@@ -1,25 +1,5 @@
 import { supabase } from "@/lib/supabase";
-import type { AiRecommendation, Workout } from "@/types/database";
-
-/**
- * @param userId — `profiles.id`
- */
-export async function getRecentWorkouts(
-  userId: string,
-  limit = 3,
-): Promise<Workout[]> {
-  const { data, error } = await supabase
-    .from("workouts")
-    .select("*")
-    .eq("user_id", userId)
-    .order("started_at", { ascending: false, nullsFirst: false })
-    .limit(limit);
-
-  if (error) {
-    throw new Error(error.message);
-  }
-  return data ?? [];
-}
+import type { AiRecommendation } from "@/types/database";
 
 /**
  * Most recent AI recommendation for the user.

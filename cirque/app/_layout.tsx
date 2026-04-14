@@ -1,7 +1,10 @@
 import "../global.css";
 import { useEffect } from "react";
 import { ActivityIndicator, StatusBar, View } from "react-native";
+import * as WebBrowser from "expo-web-browser";
 import { Stack, useRouter, useSegments } from "expo-router";
+
+WebBrowser.maybeCompleteAuthSession();
 
 import { AuthProvider } from "@/context/AuthContext";
 import { colors } from "@/constants/colors";

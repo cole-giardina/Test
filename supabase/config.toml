@@ -1,0 +1,14 @@
+# Supabase — run `supabase link` so the CLI knows your project ref.
+# Deploy functions: `supabase functions deploy parse-food` (etc.).
+
+[api]
+enabled = true
+
+[functions.parse-food]
+verify_jwt = true
+
+[functions.strava-token-exchange]
+verify_jwt = true
+
+[functions.strava-sync]
+verify_jwt = true

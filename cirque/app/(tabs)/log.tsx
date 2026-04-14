@@ -23,6 +23,13 @@ import { colors } from "@/constants/colors";
 import { useAuth } from "@/hooks/useAuth";
 import { parseFoodEntry } from "@/lib/foodAI";
 import { getTodaysFoodLogs, saveFoodLog } from "@/lib/foodLog";
+import type { SaveFoodLogEntry } from "@/lib/foodLog";
+import {
+  hasNutritionixConfig,
+  instantSearch,
+  nutrientsFromNaturalQuery,
+  type InstantFoodItem,
+} from "@/lib/nutritionix";
 import type { ParsedFoodNutrition } from "@/lib/foodAI";
 import type { FoodLog, Profile } from "@/types/database";
 
@@ -207,11 +214,16 @@ export default function LogTab() {
   const [preview, setPreview] = useState<{
     data: ParsedFoodNutrition;
     rawText: string;
+    source: SaveFoodLogEntry["source"];
   } | null>(null);
   const [todaysLogs, setTodaysLogs] = useState<FoodLog[]>([]);
   const [listLoading, setListLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [inputFocused, setInputFocused] = useState(false);
+  const [nxQuery, setNxQuery] = useState("");
+  const [nxResults, setNxResults] = useState<InstantFoodItem[]>([]);
+  const [nxLoading, setNxLoading] = useState(false);
+  const nxDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const goals = useMemo(() => getMacroGoals(profile), [profile]);
   const totals = useMemo(() => sumTotalsFromLogs(todaysLogs), [todaysLogs]);
@@ -265,6 +277,58 @@ export default function LogTab() {
     }, [loadLogs]),
   );
 
+  async function handlePickNutritionixItem(item: InstantFoodItem) {
+    setError(null);
+    setAnalyzing(true);
+    try {
+      const line =
+        item.brand_name && item.brand_name.length > 0
+          ? `${item.brand_name} ${item.food_name}`
+          : item.food_name;
+      const data = await nutrientsFromNaturalQuery(line);
+      setPreview({ data, rawText: line, source: "nutritionix" });
+      setNxQuery("");
+      setNxResults([]);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not load food.");
+    } finally {
+      setAnalyzing(false);
+    }
+  }
+
+  useEffect(() => {
+    if (!hasNutritionixConfig()) {
+      return;
+    }
+    if (nxDebounce.current) {
+      clearTimeout(nxDebounce.current);
+    }
+    const q = nxQuery.trim();
+    if (q.length < 2) {
+      setNxResults([]);
+      return;
+    }
+    nxDebounce.current = setTimeout(() => {
+      void (async () => {
+        setNxLoading(true);
+        try {
+          const r = await instantSearch(q);
+          setNxResults(r);
+        } catch (e) {
+          console.warn("[Log] instantSearch", e);
+          setNxResults([]);
+        } finally {
+          setNxLoading(false);
+        }
+      })();
+    }, 320);
+    return () => {
+      if (nxDebounce.current) {
+        clearTimeout(nxDebounce.current);
+      }
+    };
+  }, [nxQuery]);
+
   async function handleAnalyze() {
     const text = inputText.trim();
     if (text.length < 3) {
@@ -275,7 +339,7 @@ export default function LogTab() {
     setAnalyzing(true);
     try {
       const data = await parseFoodEntry(text, mealType);
-      setPreview({ data, rawText: inputText });
+      setPreview({ data, rawText: inputText, source: "ai" });
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not analyze food.");
     } finally {
@@ -293,7 +357,7 @@ export default function LogTab() {
       await saveFoodLog(profile.id, {
         meal_type: mealType,
         description: preview.data.description,
-        source: "ai",
+        source: preview.source,
         calories: preview.data.calories,
         protein_g: preview.data.protein_g,
         carbs_g: preview.data.carbs_g,
@@ -384,6 +448,54 @@ export default function LogTab() {
             );
           })}
         </ScrollView>
+
+        {hasNutritionixConfig() ? (
+          <View className="mb-4">
+            <Text
+              className="mb-2 text-[11px] font-semibold uppercase tracking-[0.2em]"
+              style={{ color: colors.textTertiary }}
+            >
+              SEARCH DATABASE
+            </Text>
+            <FrostedCard padding={10}>
+              <TextInput
+                className="min-h-[40px] px-2 py-2 text-base text-white"
+                placeholder="Search Nutritionix (e.g. banana, Greek yogurt)"
+                placeholderTextColor={colors.textTertiary}
+                value={nxQuery}
+                onChangeText={setNxQuery}
+                editable={!analyzing && !saving}
+              />
+              {nxLoading ? (
+                <View className="py-2">
+                  <ActivityIndicator color={colors.accentBright} />
+                </View>
+              ) : null}
+              {nxResults.length > 0 ? (
+                <View className="mt-1" style={{ maxHeight: 200 }}>
+                  {nxResults.slice(0, 20).map((item, i) => (
+                    <Pressable
+                      key={`${item.food_name}-${i}`}
+                      className="border-t py-2 active:opacity-80"
+                      style={{ borderColor: `${colors.border}99` }}
+                      onPress={() => void handlePickNutritionixItem(item)}
+                    >
+                      <Text className="text-sm text-white">{item.food_name}</Text>
+                      {item.brand_name ? (
+                        <Text
+                          className="text-xs"
+                          style={{ color: colors.textTertiary }}
+                        >
+                          {item.brand_name}
+                        </Text>
+                      ) : null}
+                    </Pressable>
+                  ))}
+                </View>
+              ) : null}
+            </FrostedCard>
+          </View>
+        ) : null}
 
         <Text
           className="mb-2 text-[11px] font-semibold uppercase tracking-[0.2em]"

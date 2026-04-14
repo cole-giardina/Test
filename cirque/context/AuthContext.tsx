@@ -7,8 +7,10 @@ import {
   type ReactNode,
 } from "react";
 import type { Session, User } from "@supabase/supabase-js";
+import { Platform } from "react-native";
 
 import { supabase } from "@/lib/supabase";
+import { syncHealthKitWorkouts } from "@/lib/workoutSync";
 import type { Profile } from "@/types/database";
 
 export type AuthContextValue = {
@@ -48,6 +50,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     setProfile(data);
+
+    if (Platform.OS === "ios" && data?.id) {
+      void syncHealthKitWorkouts(data.id).catch((err) => {
+        console.warn("[Auth] HealthKit background sync:", err);
+      });
+    }
   }, []);
 
   const refreshProfile = useCallback(async () => {

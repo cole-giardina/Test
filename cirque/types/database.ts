@@ -19,6 +19,7 @@ export interface Profile {
   daily_protein_g: number | null;
   training_level: string | null;
   dietary_restrictions: string[] | null;
+  strava_linked?: boolean;
   created_at: string;
 }
 
@@ -98,6 +99,7 @@ export interface Database {
           daily_protein_g?: number | null;
           training_level?: string | null;
           dietary_restrictions?: string[] | null;
+          strava_linked?: boolean;
           created_at?: string;
         };
         Update: Partial<Omit<Profile, "id" | "created_at">>;

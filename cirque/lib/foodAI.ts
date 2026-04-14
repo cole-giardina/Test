@@ -1,6 +1,8 @@
 import Anthropic from "@anthropic-ai/sdk";
 import Constants from "expo-constants";
 
+import { supabase } from "@/lib/supabase";
+
 const MODEL = "claude-sonnet-4-20250514";
 const MAX_TOKENS = 500;
 
@@ -119,13 +121,51 @@ function parseNutritionJson(text: string): ParsedFoodNutrition {
   };
 }
 
+function useFoodParseEdge(): boolean {
+  const v = process.env.EXPO_PUBLIC_USE_FOOD_PARSE_EDGE?.toLowerCase();
+  return v === "1" || v === "true" || v === "yes";
+}
+
+async function parseFoodEntryViaEdge(
+  description: string,
+  mealType: string,
+): Promise<ParsedFoodNutrition> {
+  const trimmed = description.trim();
+  if (trimmed.length < 3) {
+    throw new Error("Describe your food in a bit more detail (at least 3 characters).");
+  }
+
+  const { data, error } = await supabase.functions.invoke<{
+    nutrition?: ParsedFoodNutrition;
+    error?: string;
+  }>("parse-food", {
+    body: { description: trimmed, mealType },
+  });
+
+  if (error) {
+    throw new Error(error.message ?? "Food parsing failed.");
+  }
+  if (data?.error) {
+    throw new Error(data.error);
+  }
+  if (!data?.nutrition) {
+    throw new Error("Unexpected response from food parser.");
+  }
+  return data.nutrition;
+}
+
 /**
  * Calls Claude to turn natural-language food text into structured nutrition estimates.
+ * When `EXPO_PUBLIC_USE_FOOD_PARSE_EDGE` is true, calls the Supabase Edge Function instead (recommended for production).
  */
 export async function parseFoodEntry(
   description: string,
   mealType: string,
 ): Promise<ParsedFoodNutrition> {
+  if (useFoodParseEdge()) {
+    return parseFoodEntryViaEdge(description, mealType);
+  }
+
   const trimmed = description.trim();
   if (trimmed.length < 3) {
     throw new Error("Describe your food in a bit more detail (at least 3 characters).");
