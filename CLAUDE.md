@@ -16,7 +16,7 @@
 
 - **React Native + Expo:** Fast iteration on iOS, OTA updates via Expo, shared TypeScript types with Supabase, and a path to native modules (HealthKit, etc.) via config plugins and dev clients when needed.
 - **Hybrid food logging (Nutritionix + Claude API):** Structured nutrition data from **Nutritionix** where lookups succeed; **Claude** interprets free-text meals, corrects ambiguities, and normalizes into the same logging model so the UX stays conversational without sacrificing macro quality.
-- **Strava + HealthKit:** **HealthKit** is the on-device source of truth for sessions and physiology on iPhone; **Strava** adds social/history and duplicate detection for outdoor work. Together they reduce manual entry while keeping `workouts` as a unified fact table in Supabase.
+- **Strava + HealthKit:** **HealthKit** is the on-device source of truth for sessions and physiology on iPhone; **Strava** OAuth (Profile tab) syncs activities into the same **`workouts`** table via Supabase Edge Functions. Together they reduce manual entry while keeping `workouts` as a unified fact table.
 
 ---
 
@@ -78,7 +78,7 @@ One line per table:
 
 ## AI layer notes
 
-- **Claude API** is used for **food interpretation** (natural language → structured logs) and **post-workout refueling recommendations** (recent workouts, sweat/electrolyte signals when available, goals and restrictions).
+- **Claude** powers **food interpretation** and **post-workout refueling**. **Release builds** call Supabase Edge Functions only (**`parse-food`**, **`refuel`**)—no Anthropic SDK in the bundle for food parsing. **Development** can use **`EXPO_PUBLIC_USE_FOOD_PARSE_EDGE=true`** (same as production) or **`EXPO_PUBLIC_ANTHROPIC_API_KEY`** for direct client parsing.
 - **`context_snapshot` (JSONB)** on `ai_recommendations` stores **what the model knew at recommendation time** (e.g. workout summary, partial food log, goal snapshot)—for debugging, regression testing when prompts change, and future “why did it say that?” UX without trusting mutable rows alone.
 
 ---
@@ -86,37 +86,40 @@ One line per table:
 ## Food logging
 
 - **Natural-language input** on **`app/(tabs)/log.tsx`**: the user describes what they ate. **`expo-camera`** is available in the **development build** (not Expo Go); barcode scanning can be added later with **`expo-barcode-scanner`** if needed.
-- **Claude parsing** lives in **`cirque/lib/foodAI.ts`**: **`parseFoodEntry(description: string, mealType: string)`** calls the Anthropic Messages API with model **`claude-sonnet-4-20250514`**, `max_tokens: 500`, a fixed **system** prompt (endurance-focused estimates, JSON-only), and a **user** prompt that asks for a strict JSON shape (description, macros, electrolytes in mg, `confidence`, `notes`). The client parses JSON (including markdown code fences if the model wraps the payload) and returns **`ParsedFoodNutrition`**; failures throw descriptive errors.
-- **Environment**: set **`EXPO_PUBLIC_ANTHROPIC_API_KEY`** in **`cirque/.env.local`** (see **`.env.example`**). Restart Expo after changes.
+- **Claude parsing** lives in **`cirque/lib/foodAI.ts`**: **`parseFoodEntry(description, mealType)`** uses the **`parse-food`** Edge Function in **release** (`!__DEV__`). In **development**, opt into Edge with **`EXPO_PUBLIC_USE_FOOD_PARSE_EDGE=true`**, or the Anthropic Messages API path (model **`claude-sonnet-4-20250514`**, JSON-only) when a dev-only key is set. The client parses JSON (including markdown code fences) into **`ParsedFoodNutrition`**; failures throw descriptive errors.
+- **Environment**: see **`cirque/.env.example`**—**`EXPO_PUBLIC_ANTHROPIC_API_KEY`** is for **local dev client parsing only**; production should rely on **`parse-food`** with **`ANTHROPIC_API_KEY`** in Supabase secrets. Restart Expo after env changes.
 - **Preview-before-save**: after a successful parse, **`NutritionPreviewCard`** shows the estimate with **Save** / **Edit**; **Save** persists via **`saveFoodLog`** in **`cirque/lib/foodLog.ts`**. **Edit** dismisses the preview and restores the original text in the input.
-- **Persistence**: **`saveFoodLog(userId, entry)`** uses **`profiles.id`** as `userId` (FK `food_logs.user_id`). Entries use **`source: 'ai'`**. Optional **`confidence`** (`high` | `medium` | `low`) is stored on **`food_logs.confidence`** when the migration adding that column is applied.
-- **Reads**: **`getTodaysFoodLogs(userId)`** and **`getDailyTotals(userId, date)`** (`date` = local calendar day **`YYYY-MM-DD`**) support the log UI and totals; listing uses today’s midnight–end in the device timezone.
-- **Meal type pills** default from **time of day** (same rules as in the Log screen: before 10 → Breakfast, etc.).
-- **Security note**: the API key is bundled in the client today (**`dangerouslyAllowBrowser: true`** on the Anthropic SDK). Plan to move parsing to a **Supabase Edge Function** (or backend) before production so the key is not exposed.
+- **Persistence**: **`saveFoodLog(userId, entry)`** uses **`profiles.id`** as `userId` (FK `food_logs.user_id`). Optional **`workout_id`** links a log to a **`workouts`** row (e.g. deep link from workout detail). Optional **`confidence`** (`high` | `medium` | `low`) on **`food_logs.confidence`**.
+- **Reads**: **`getFoodLogsForDate(userId, date)`** and **`getDailyTotals(userId, date)`** (`date` = local **`YYYY-MM-DD`**); **`getTodaysFoodLogs`** is a thin wrapper around **`getFoodLogsForDate(..., getTodayDateString())`**. Log and Dashboard support **browsing other calendar days** (prev/next).
+- **Meal type pills** default from **time of day** (same rules as in the Log screen: before 10 → Breakfast, etc.); opening Log with **`workoutId`** (from a workout) defaults meal type to **Post-workout**.
+- **Security**: do **not** ship **`EXPO_PUBLIC_ANTHROPIC_API_KEY`** in App Store builds; release food parsing is Edge-only.
 
 ---
 
 ## Dashboard
 
-- **Home tab** is **`app/(tabs)/index.tsx`**: **dark slate** theme (see **Design system** above), dense layout—greeting + date, calorie hero ring, electrolyte **StatCards**, optional macro bars, recent workouts, today’s food preview, AI recommendation card. **Pull-to-refresh** calls **`useDashboard().refresh()`**.
-- **`useDashboard`** (**`cirque/hooks/useDashboard.ts`**) aggregates data for the screen. **`profile`** comes from **`useAuth`** (no extra fetch). In parallel (**`Promise.all`**), it loads **`getTodaysFoodLogs`**, **`getDailyTotals(userId, today)`** (local **`YYYY-MM-DD`** via **`getTodayDateString()`** in **`lib/formatters.ts`**), **`getWorkouts(userId, 3)`** from **`lib/workoutSync.ts`**, and **`getLatestAiRecommendation`** from **`lib/dashboardData.ts`**. Each query **`.catch`es** so one failure does not wipe the rest. Waits for **`authLoading`** from **`AuthContext`** before fetching.
+- **Home tab** is **`app/(tabs)/index.tsx`**: **dark slate** theme (see **Design system** above), dense layout—greeting + date, **day selector** (local calendar day), calorie hero ring, electrolyte **StatCards**, optional macro bars, recent workouts, food preview for the selected day, AI recommendation card. **Pull-to-refresh** calls **`useDashboard().refresh()`**.
+- **`useDashboard`** (**`cirque/hooks/useDashboard.ts`**) aggregates data for the screen. **`profile`** comes from **`useAuth`** (no extra fetch). In parallel (**`Promise.all`**), it loads **`getFoodLogsForDate(userId, dashboardDate)`**, **`getDailyTotals(userId, dashboardDate)`**, **`getWorkouts(userId, 3)`** from **`lib/workoutSync.ts`**, and **`getLatestAiRecommendation`** from **`lib/dashboardData.ts`**. **`setDashboardDate(ymd)`** changes the selected day (defaults to **`getTodayDateString()`**). **`generateRefuel(params?)`** invokes the **`refuel`** Edge Function with optional **`workoutId`**. Each query **`.catch`es** so one failure does not wipe the rest. Waits for **`authLoading`** from **`AuthContext`** before fetching.
+- **Macro targets** for Dashboard and Log share **`getMacroTargetsForProfile`** in **`cirque/lib/macroGoals.ts`** (same **50% / 25%** carb/fat split from **`daily_calorie_goal`** as the dashboard macro bars).
 - **UI building blocks**: **`CalorieRingHero`** (wraps **`MacroRing`** with **`centerContent`** for kcal + satellites for P/C/F grams), **`StatCard`**, **`MacroBar`**, **`SectionHeader`**, **`WorkoutRow`**, **`RecommendationCard`** under **`components/ui/`**.
 - **Electrolyte daily targets** (dashboard bars): **sodium 1500 mg**, **potassium 3500 mg**, **magnesium 400 mg**. Bar fill = **min(100%, consumed ÷ target × 100)**; fill uses per-electrolyte tokens from **`colors`** if at or under target, **warning** (`#E8A838`) if over.
 - **Macro goals** (from profile): **protein** = **`profile.daily_protein_g`** (fallback **120 g** in bars); **carbs** = **`(daily_calorie_goal × 0.5) / 4`**; **fat** = **`(daily_calorie_goal × 0.25) / 9`**. The **macro breakdown** block is **hidden** unless **`profile.daily_calorie_goal`** is set (> 0).
 - **Calorie ring**: if **no calorie goal**, the ring shows **no progress arc** (max placeholder **1**); center still shows **consumed kcal** only.
 - **Helpers** (**`lib/formatters.ts`**): **`formatDuration`**, **`formatDistance`** (meters → `412m` / `12.4km`), **`formatDate`** (Today / Yesterday / short weekday), **`getGreeting`**, **`formatFirstName`**, **`getTodayDateString`**.
-- **AI recommendation card**: **`RecommendationCard`** shows copy from **`ai_recommendations`** when present; otherwise prompts the user to log a workout for refueling advice. **`ai_recommendations`** rows will populate once the **AI pipeline** and **HealthKit**-driven flows exist; until then the empty state is expected.
+- **AI recommendation card**: **`RecommendationCard`** shows copy from **`ai_recommendations`** when present (populated by the **`refuel`** Edge Function); otherwise prompts the user to log a workout for refueling advice.
 
 ---
 
 ## HealthKit & workout sync
 
 - **`lib/healthkit.ts`:** Uses **`apple-health`** (`HealthKitQuery`, `AppleHealth.requestAuthorization`). Exports **`HealthKitWorkout`**, **`requestHealthKitPermissions`**, **`fetchRecentWorkouts`**, **`fetchWorkoutHeartRate`**, **`fetchTodaysActiveCalories`** (alias **`fetchTodaysCaloriesBurned`**), **`mapActivityType`**. Queries use string identifiers such as **`workout`**, **`heartRate`**, **`activeEnergyBurned`** (not `HK*` C symbols—the package wraps native types).
-- **`lib/workoutSync.ts`:** **`syncHealthKitWorkouts(userId)`** pulls up to 50 recent HK workouts, deduplicates, inserts into **`workouts`** with **`source: 'healthkit'`**. **`getWorkouts(userId, limit)`** reads from Supabase for UI.
+- **`lib/workoutSync.ts`:** **`syncHealthKitWorkouts(userId)`** pulls up to 50 recent HK workouts, deduplicates, inserts into **`workouts`** with **`source: 'healthkit'`**. **`getWorkouts(userId, limit)`** and **`getWorkoutById(userId, id)`** read from Supabase for UI.
 - **Dedup:** Before insert, check for an existing row with **`source = 'healthkit'`** and **`raw_data @> '{"uuid":"<HKSampleUUID>"}'`** (Supabase **`.contains('raw_data', { uuid })`**). Same Apple workout UUID must not insert twice.
 - **`hooks/useHealthKit.ts`:** Permission probe via **`getAuthorizationStatus`**, **`requestPermissions`**, **`syncWorkouts`**, **`lastSyncResult`**, **`lastSyncAt`**.
 - **`context/AuthContext.tsx`:** After **`profiles`** load on iOS, **`syncHealthKitWorkouts(profile.id)`** runs in the background (errors logged only; never blocks auth).
-- **Workouts tab** (**`app/(tabs)/workouts.tsx`**): Lists Supabase workouts, pull-to-refresh and header sync; **`Profile`** has **Health & sync** (temporary HK test button removed).
+- **Workouts tab** (**`app/(tabs)/workouts/`** stack): **`index`** lists Supabase workouts (tap row → **`[id]`** detail: log meal for session, refuel for that **`workout_id`**); **+** opens **`manual`** to add a **`source: manual`** workout; pull-to-refresh and header sync; **`Profile`** has Health sync and **Strava** connect when configured.
+- **Trends tab** (**`app/(tabs)/trends.tsx`**): rolling **7-day** calorie bars and macro sums via **`getRollingDayTotals`** in **`lib/trends.ts`** (wraps **`getDailyTotals`** per day).
+- **Profile tab**: editable display name, calorie/protein goals, dietary restrictions (**`updateProfile`** on **`AuthContext`**); see **[`APP_STORE.md`](cirque/APP_STORE.md)** for release checklist.
 - **HealthKit confirmed working on device:** **YES** (permissions validated); full sync requires a **physical device** with data in the Health app.
 
 ---
@@ -131,7 +134,7 @@ One line per table:
 - **Dev client:** **`expo-dev-client`** is in **`package.json`** and listed in **`app.json`** **`plugins`** (with **`expo-router`**, **`expo-build-properties`**, **`apple-health`**, etc.).
 - **HealthKit:** **`ios.infoPlist`** usage strings (**`NSHealthShareUsageDescription`**, **`NSHealthUpdateUsageDescription`**), **`ios.entitlements`** (`healthkit`, `healthkit.background-delivery`), **`deploymentTarget` `16.0`** via **`expo-build-properties`**, and the **`apple-health`** config plugin are declared in **`app.json`**. Runtime access uses **`apple-health`** (see **HealthKit & workout sync** above); do **not** use the npm package **`expo-health`** (placeholder).
 - **Deferred native packages (dev client only):** **`apple-health`**, **`expo-camera`**—not available in Expo Go; rebuild the dev client after native changes.
-- **EAS CLI:** use **`cd cirque && npx eas …`** (or global **`eas`**).
+- **EAS CLI:** use **`cd cirque && npx eas …`** (or global **`eas`**). **`app.config.js`** clears **`extra.anthropicApiKey`** for **`production`** and **`preview`** EAS build profiles so the client does not embed a dev Anthropic key.
 
 **Commands (local machine)**
 
@@ -150,8 +153,8 @@ One line per table:
 | Phase | Focus |
 |-------|--------|
 | **Phase 1** | Foundation—auth, profiles, core navigation, **HealthKit** ingestion into `workouts`. |
-| **Phase 2** | **Strava** OAuth + sync, **Nutritionix** lookup and barcode flow, food logging UI. |
-| **Phase 3** | **AI layer**—Claude for text meals and refueling cards; persist recommendations with `context_snapshot`. |
-| **Phase 4** | **Dashboard + polish**—trends, goal progress, App Store readiness, performance and accessibility. |
+| **Phase 2** | **Strava** OAuth + sync (in app), **Nutritionix** instant + natural nutrients on Log, food logging UI. **Barcode** still optional / later. |
+| **Phase 3** | **AI layer**—Edge **`parse-food`** + **`refuel`**, text meals, recommendations with **`context_snapshot`**. |
+| **Phase 4** | **Dashboard + polish**—multi-day food views, **`goals`** table UI, trends, App Store readiness, performance and accessibility. |
 
-Short labels: **Phase 1:** foundation + HealthKit · **Phase 2:** Strava + Nutritionix · **Phase 3:** AI layer · **Phase 4:** dashboard + polish.
+Short labels: **Phase 1:** foundation + HealthKit · **Phase 2:** Strava + Nutritionix (shipped except barcode) · **Phase 3:** AI via Edge (shipped) · **Phase 4:** dashboard + polish.

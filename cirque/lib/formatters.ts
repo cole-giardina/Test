@@ -78,3 +78,69 @@ export function getTodayDateString(): string {
   const d = String(n.getDate()).padStart(2, "0");
   return `${y}-${m}-${d}`;
 }
+
+function startOfLocalDayMs(d: Date): number {
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+}
+
+/** Parse `YYYY-MM-DD` as a local calendar day (noon anchor avoids DST edge issues). */
+export function parseLocalDateString(ymd: string): Date {
+  const parts = ymd.split("-").map((p) => Number(p));
+  if (parts.length !== 3 || parts.some((n) => Number.isNaN(n))) {
+    return new Date(NaN);
+  }
+  const [y, m, d] = parts;
+  return new Date(y, m - 1, d, 12, 0, 0, 0);
+}
+
+/** Shift a local calendar `YYYY-MM-DD` by `delta` days. */
+/** Inclusive range of local calendar days from `startYmd` through `endYmd` (both `YYYY-MM-DD`). */
+export function enumerateCalendarDays(startYmd: string, endYmd: string): string[] {
+  if (startYmd > endYmd) {
+    return [];
+  }
+  const out: string[] = [];
+  let d = startYmd;
+  for (;;) {
+    out.push(d);
+    if (d >= endYmd) {
+      break;
+    }
+    d = addCalendarDays(d, 1);
+  }
+  return out;
+}
+
+export function addCalendarDays(ymd: string, delta: number): string {
+  const d = parseLocalDateString(ymd);
+  if (Number.isNaN(d.getTime())) {
+    return ymd;
+  }
+  d.setDate(d.getDate() + delta);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+/** Short label for a dashboard/log calendar day (Today / Yesterday / Mon, Apr 14). */
+export function formatDashboardDayLabel(ymd: string): string {
+  const d = parseLocalDateString(ymd);
+  if (Number.isNaN(d.getTime())) {
+    return ymd;
+  }
+  const t0 = startOfLocalDayMs(new Date());
+  const d0 = startOfLocalDayMs(d);
+  const diffDays = Math.round((t0 - d0) / (24 * 60 * 60 * 1000));
+  if (diffDays === 0) {
+    return "Today";
+  }
+  if (diffDays === 1) {
+    return "Yesterday";
+  }
+  return d.toLocaleDateString("en-US", {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+  });
+}

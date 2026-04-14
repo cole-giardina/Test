@@ -18,6 +18,7 @@
       "bundleIdentifier": "com.colegiardina.cirque",
       "supportsTablet": false,
       "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false,
         "NSHealthShareUsageDescription": "Cirque reads your workouts and activity data to provide personalized nutrition and recovery recommendations.",
         "NSHealthUpdateUsageDescription": "Cirque may write nutrition data back to Apple Health.",
         "NSCameraUsageDescription": "Cirque uses the camera to photograph meals for food logging.",

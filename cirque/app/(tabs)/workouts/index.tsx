@@ -1,4 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
+import { router, useFocusEffect } from "expo-router";
 import { useCallback, useState } from "react";
 import {
   ActivityIndicator,
@@ -8,7 +9,6 @@ import {
   Text,
   View,
 } from "react-native";
-import { useFocusEffect } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { FrostedCard } from "@/components/ui/FrostedCard";
@@ -36,7 +36,7 @@ function iconForActivity(activity: string | null): keyof typeof Ionicons.glyphMa
   return "pulse-outline";
 }
 
-export default function WorkoutsTab() {
+export default function WorkoutsListScreen() {
   const insets = useSafeAreaInsets();
   const { profile } = useAuth();
   const userId = profile?.id;
@@ -118,18 +118,32 @@ export default function WorkoutsTab() {
     >
       <View className="flex-row items-center justify-between px-4 pb-3 pt-2">
         <Text className="text-2xl font-bold text-white">Workouts</Text>
-        <Pressable
-          className="h-10 w-10 items-center justify-center rounded-full active:opacity-80"
-          style={{ backgroundColor: colors.surface }}
-          disabled={isSyncing || hkLoading || !userId}
-          onPress={() => void runSync()}
-        >
-          {isSyncing ? (
-            <ActivityIndicator color={colors.accentBright} size="small" />
-          ) : (
-            <Ionicons name="cloud-upload-outline" size={22} color={colors.accentBright} />
-          )}
-        </Pressable>
+        <View className="flex-row items-center gap-2">
+          <Pressable
+            className="h-10 min-w-[40px] items-center justify-center rounded-full px-2 active:opacity-80"
+            style={{ backgroundColor: colors.surface }}
+            disabled={!userId}
+            onPress={() => router.push("/(tabs)/workouts/manual")}
+            accessibilityRole="button"
+            accessibilityLabel="Add manual workout"
+          >
+            <Ionicons name="add" size={24} color={colors.accentBright} />
+          </Pressable>
+          <Pressable
+            className="h-10 w-10 items-center justify-center rounded-full active:opacity-80"
+            style={{ backgroundColor: colors.surface }}
+            disabled={isSyncing || hkLoading || !userId}
+            onPress={() => void runSync()}
+            accessibilityRole="button"
+            accessibilityLabel="Sync workouts from Apple Health"
+          >
+            {isSyncing ? (
+              <ActivityIndicator color={colors.accentBright} size="small" />
+            ) : (
+              <Ionicons name="cloud-upload-outline" size={22} color={colors.accentBright} />
+            )}
+          </Pressable>
+        </View>
       </View>
 
       {showSyncBar ? (
@@ -209,108 +223,118 @@ export default function WorkoutsTab() {
           ) : (
             workouts.map((w) => (
               <View key={w.id} className="mb-3">
-                <FrostedCard padding={14}>
-                  <View className="mb-3 flex-row items-start justify-between">
-                    <View className="flex-row items-center gap-2">
-                      <Ionicons
-                        name={iconForActivity(w.activity_type)}
-                        size={22}
-                        color={colors.accentBright}
-                      />
-                      <Text className="text-base font-semibold text-white">
-                        {w.activity_type ?? "Workout"}
-                      </Text>
-                    </View>
-                    {w.started_at ? (
-                      <Text
-                        className="text-xs"
-                        style={{ color: colors.textTertiary }}
-                      >
-                        {formatDate(w.started_at)}
-                      </Text>
-                    ) : null}
-                  </View>
-
-                  <View className="mb-3 flex-row justify-between">
-                    <View className="flex-1 items-center">
-                      <Text
-                        className="text-[10px] uppercase tracking-wide"
-                        style={{ color: colors.textTertiary }}
-                      >
-                        Duration
-                      </Text>
-                      <Text className="mt-0.5 text-sm font-semibold text-white">
-                        {formatDuration(Number(w.duration_seconds ?? 0))}
-                      </Text>
-                    </View>
-                    <View className="flex-1 items-center">
-                      <Text
-                        className="text-[10px] uppercase tracking-wide"
-                        style={{ color: colors.textTertiary }}
-                      >
-                        Distance
-                      </Text>
-                      <Text className="mt-0.5 text-sm font-semibold text-white">
-                        {formatDistance(w.distance_meters)}
-                      </Text>
-                    </View>
-                    <View className="flex-1 items-center">
-                      <Text
-                        className="text-[10px] uppercase tracking-wide"
-                        style={{ color: colors.textTertiary }}
-                      >
-                        Calories
-                      </Text>
-                      <Text className="mt-0.5 text-sm font-semibold text-white">
-                        {w.calories_burned != null
-                          ? `${Math.round(Number(w.calories_burned))} kcal`
-                          : "—"}
-                      </Text>
-                    </View>
-                  </View>
-
-                  <View className="flex-row items-center justify-between border-t border-white/10 pt-2">
-                    <View className="flex-row items-center gap-1">
-                      {w.avg_heart_rate != null ? (
-                        <>
-                          <Ionicons
-                            name="heart-outline"
-                            size={14}
-                            color={colors.textSecondary}
-                          />
-                          <Text
-                            className="text-xs"
-                            style={{ color: colors.textSecondary }}
-                          >
-                            {Math.round(Number(w.avg_heart_rate))} bpm
-                          </Text>
-                        </>
-                      ) : (
+                <Pressable
+                  onPress={() => {
+                    router.push(`/(tabs)/workouts/${w.id}`);
+                  }}
+                  className="active:opacity-90"
+                >
+                  <FrostedCard padding={14}>
+                    <View className="mb-3 flex-row items-start justify-between">
+                      <View className="flex-row items-center gap-2">
+                        <Ionicons
+                          name={iconForActivity(w.activity_type)}
+                          size={22}
+                          color={colors.accentBright}
+                        />
+                        <Text className="text-base font-semibold text-white">
+                          {w.activity_type ?? "Workout"}
+                        </Text>
+                      </View>
+                      {w.started_at ? (
                         <Text
                           className="text-xs"
                           style={{ color: colors.textTertiary }}
                         >
-                          —
+                          {formatDate(w.started_at)}
                         </Text>
-                      )}
+                      ) : null}
                     </View>
-                    <Text
-                      className="max-w-[55%] text-right text-xs"
-                      style={{ color: colors.textTertiary }}
-                      numberOfLines={1}
-                    >
-                      {w.source === "healthkit"
-                        ? (typeof w.raw_data === "object" &&
-                            w.raw_data &&
-                            "source_name" in w.raw_data &&
-                            String(
-                              (w.raw_data as { source_name?: string })
-                                .source_name,
-                            )) || "Apple Health"
-                        : w.source}
-                    </Text>
-                  </View>
-                </FrostedCard>
+
+                    <View className="mb-3 flex-row justify-between">
+                      <View className="flex-1 items-center">
+                        <Text
+                          className="text-[10px] uppercase tracking-wide"
+                          style={{ color: colors.textTertiary }}
+                        >
+                          Duration
+                        </Text>
+                        <Text className="mt-0.5 text-sm font-semibold text-white">
+                          {formatDuration(Number(w.duration_seconds ?? 0))}
+                        </Text>
+                      </View>
+                      <View className="flex-1 items-center">
+                        <Text
+                          className="text-[10px] uppercase tracking-wide"
+                          style={{ color: colors.textTertiary }}
+                        >
+                          Distance
+                        </Text>
+                        <Text className="mt-0.5 text-sm font-semibold text-white">
+                          {formatDistance(w.distance_meters)}
+                        </Text>
+                      </View>
+                      <View className="flex-1 items-center">
+                        <Text
+                          className="text-[10px] uppercase tracking-wide"
+                          style={{ color: colors.textTertiary }}
+                        >
+                          Calories
+                        </Text>
+                        <Text className="mt-0.5 text-sm font-semibold text-white">
+                          {w.calories_burned != null
+                            ? `${Math.round(Number(w.calories_burned))} kcal`
+                            : "—"}
+                        </Text>
+                      </View>
+                    </View>
+
+                    <View className="flex-row items-center justify-between border-t border-white/10 pt-2">
+                      <View className="flex-row items-center gap-1">
+                        {w.avg_heart_rate != null ? (
+                          <>
+                            <Ionicons
+                              name="heart-outline"
+                              size={14}
+                              color={colors.textSecondary}
+                            />
+                            <Text
+                              className="text-xs"
+                              style={{ color: colors.textSecondary }}
+                            >
+                              {Math.round(Number(w.avg_heart_rate))} bpm
+                            </Text>
+                          </>
+                        ) : (
+                          <Text
+                            className="text-xs"
+                            style={{ color: colors.textTertiary }}
+                          >
+                            —
+                          </Text>
+                        )}
+                      </View>
+                      <View className="flex-row items-center gap-1">
+                        <Text
+                          className="max-w-[50%] text-right text-xs"
+                          style={{ color: colors.textTertiary }}
+                          numberOfLines={1}
+                        >
+                          {w.source === "healthkit"
+                            ? (typeof w.raw_data === "object" &&
+                                w.raw_data &&
+                                "source_name" in w.raw_data &&
+                                String(
+                                  (w.raw_data as { source_name?: string })
+                                    .source_name,
+                                )) || "Apple Health"
+                            : w.source}
+                        </Text>
+                        <Ionicons name="chevron-forward" size={14} color={colors.textTertiary} />
+                      </View>
+                    </View>
+                  </FrostedCard>
+                </Pressable>
               </View>
             ))
           )}

@@ -40,7 +40,7 @@ function getClient(): Anthropic {
   const apiKey = getAnthropicApiKey();
   if (!apiKey) {
     throw new Error(
-      "Anthropic key missing: in cirque/.env.local put EXPO_PUBLIC_ANTHROPIC_API_KEY=your-key on one line, save the file (⌘S), then restart Expo with npx expo start --clear.",
+      "Anthropic key missing for dev client parsing: in cirque/.env.local set EXPO_PUBLIC_ANTHROPIC_API_KEY=… or use EXPO_PUBLIC_USE_FOOD_PARSE_EDGE=true with the parse-food function deployed. Release builds always use Edge.",
     );
   }
   return new Anthropic({ apiKey, dangerouslyAllowBrowser: true });
@@ -121,7 +121,14 @@ function parseNutritionJson(text: string): ParsedFoodNutrition {
   };
 }
 
-function useFoodParseEdge(): boolean {
+/**
+ * Release builds always use the `parse-food` Edge Function (no bundled Anthropic calls).
+ * In development, opt in with `EXPO_PUBLIC_USE_FOOD_PARSE_EDGE=true`, otherwise the client SDK is used when a key is set.
+ */
+function shouldUseFoodParseEdge(): boolean {
+  if (!__DEV__) {
+    return true;
+  }
   const v = process.env.EXPO_PUBLIC_USE_FOOD_PARSE_EDGE?.toLowerCase();
   return v === "1" || v === "true" || v === "yes";
 }
@@ -155,14 +162,15 @@ async function parseFoodEntryViaEdge(
 }
 
 /**
- * Calls Claude to turn natural-language food text into structured nutrition estimates.
- * When `EXPO_PUBLIC_USE_FOOD_PARSE_EDGE` is true, calls the Supabase Edge Function instead (recommended for production).
+ * Turns natural-language food text into structured nutrition estimates.
+ * Release builds call the Supabase Edge Function `parse-food` only. In dev, set
+ * `EXPO_PUBLIC_USE_FOOD_PARSE_EDGE=true` for the same path, or use `EXPO_PUBLIC_ANTHROPIC_API_KEY` for direct client calls.
  */
 export async function parseFoodEntry(
   description: string,
   mealType: string,
 ): Promise<ParsedFoodNutrition> {
-  if (useFoodParseEdge()) {
+  if (shouldUseFoodParseEdge()) {
     return parseFoodEntryViaEdge(description, mealType);
   }
 

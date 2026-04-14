@@ -1,5 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
-import { useFocusEffect } from "expo-router";
+import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -22,7 +22,14 @@ import { NutritionPreviewCard } from "@/components/ui/NutritionPreviewCard";
 import { colors } from "@/constants/colors";
 import { useAuth } from "@/hooks/useAuth";
 import { parseFoodEntry } from "@/lib/foodAI";
-import { getTodaysFoodLogs, saveFoodLog } from "@/lib/foodLog";
+import {
+  addCalendarDays,
+  formatDashboardDayLabel,
+  getTodayDateString,
+} from "@/lib/formatters";
+import { getFoodLogsForDate, saveFoodLog } from "@/lib/foodLog";
+import { getMacroTargetsForProfile } from "@/lib/macroGoals";
+import { getWorkoutById } from "@/lib/workoutSync";
 import type { SaveFoodLogEntry } from "@/lib/foodLog";
 import {
   hasNutritionixConfig,
@@ -31,7 +38,7 @@ import {
   type InstantFoodItem,
 } from "@/lib/nutritionix";
 import type { ParsedFoodNutrition } from "@/lib/foodAI";
-import type { FoodLog, Profile } from "@/types/database";
+import type { FoodLog } from "@/types/database";
 
 const MEAL_TYPES = [
   "Breakfast",
@@ -63,14 +70,6 @@ function getDefaultMealTypeForNow(): string {
   return "Recovery";
 }
 
-function formatHeaderDate(): string {
-  return new Date().toLocaleDateString("en-US", {
-    weekday: "long",
-    month: "short",
-    day: "numeric",
-  });
-}
-
 function formatLogTime(iso: string | null): string {
   if (!iso) {
     return "";
@@ -80,14 +79,6 @@ function formatLogTime(iso: string | null): string {
     hour: "numeric",
     minute: "2-digit",
   });
-}
-
-function getMacroGoals(profile: Profile | null) {
-  const calorieGoal = profile?.daily_calorie_goal ?? 2200;
-  const proteinGoal = profile?.daily_protein_g ?? 120;
-  const carbGoal = Math.round((calorieGoal * 0.45) / 4);
-  const fatGoal = Math.round((calorieGoal * 0.3) / 9);
-  return { calorieGoal, proteinGoal, carbGoal, fatGoal };
 }
 
 function sumTotalsFromLogs(logs: FoodLog[]) {
@@ -207,6 +198,20 @@ export default function LogTab() {
   const inputRef = useRef<TextInput>(null);
   const analyzePulse = useRef(new Animated.Value(1)).current;
 
+  const params = useLocalSearchParams<{
+    workoutId?: string | string[];
+    date?: string | string[];
+  }>();
+  const workoutIdRaw = Array.isArray(params.workoutId)
+    ? params.workoutId[0]
+    : params.workoutId;
+  const dateParam = Array.isArray(params.date) ? params.date[0] : params.date;
+  const initialLogDate =
+    dateParam && /^\d{4}-\d{2}-\d{2}$/.test(dateParam) ? dateParam : getTodayDateString();
+
+  const [logDate, setLogDate] = useState(initialLogDate);
+  const [linkedWorkoutTitle, setLinkedWorkoutTitle] = useState<string | null>(null);
+
   const [mealType, setMealType] = useState(getDefaultMealTypeForNow);
   const [inputText, setInputText] = useState("");
   const [analyzing, setAnalyzing] = useState(false);
@@ -225,8 +230,47 @@ export default function LogTab() {
   const [nxLoading, setNxLoading] = useState(false);
   const nxDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const goals = useMemo(() => getMacroGoals(profile), [profile]);
+  const macro = useMemo(() => getMacroTargetsForProfile(profile), [profile]);
   const totals = useMemo(() => sumTotalsFromLogs(todaysLogs), [todaysLogs]);
+  const dayLabel = formatDashboardDayLabel(logDate);
+  const todayStr = getTodayDateString();
+
+  useEffect(() => {
+    if (dateParam && /^\d{4}-\d{2}-\d{2}$/.test(dateParam)) {
+      setLogDate(dateParam);
+    }
+  }, [dateParam]);
+
+  useEffect(() => {
+    if (workoutIdRaw) {
+      setMealType("Post-workout");
+    }
+  }, [workoutIdRaw]);
+
+  useEffect(() => {
+    if (!profile?.id || !workoutIdRaw) {
+      setLinkedWorkoutTitle(null);
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      try {
+        const w = await getWorkoutById(profile.id, workoutIdRaw);
+        if (!cancelled) {
+          setLinkedWorkoutTitle(
+            w == null ? "Unknown workout" : w.activity_type?.trim() || "Workout",
+          );
+        }
+      } catch {
+        if (!cancelled) {
+          setLinkedWorkoutTitle(null);
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [profile?.id, workoutIdRaw]);
 
   useEffect(() => {
     if (!analyzing) {
@@ -261,7 +305,7 @@ export default function LogTab() {
     }
     setListLoading(true);
     try {
-      const rows = await getTodaysFoodLogs(profile.id);
+      const rows = await getFoodLogsForDate(profile.id, logDate);
       setTodaysLogs(rows);
     } catch (e) {
       console.error("[Log] loadLogs", e);
@@ -269,7 +313,7 @@ export default function LogTab() {
     } finally {
       setListLoading(false);
     }
-  }, [profile?.id]);
+  }, [profile?.id, logDate]);
 
   useFocusEffect(
     useCallback(() => {
@@ -367,6 +411,7 @@ export default function LogTab() {
         magnesium_mg: preview.data.magnesium_mg,
         logged_at: new Date().toISOString(),
         confidence: preview.data.confidence,
+        workout_id: workoutIdRaw ?? undefined,
       });
       setPreview(null);
       setInputText("");
@@ -403,13 +448,38 @@ export default function LogTab() {
           <Text className="text-2xl font-bold tracking-tight text-white">
             Log food
           </Text>
-          <Text
-            className="mt-1 text-sm"
-            style={{ color: colors.textSecondary }}
-          >
-            {formatHeaderDate()}
-          </Text>
+          <View className="mt-3 flex-row items-center justify-between rounded-xl border px-2 py-2" style={{ borderColor: colors.border }}>
+            <Pressable
+              className="h-10 w-10 items-center justify-center rounded-lg active:opacity-80"
+              style={{ backgroundColor: colors.surface }}
+              onPress={() => setLogDate((d) => addCalendarDays(d, -1))}
+            >
+              <Text className="text-lg text-white">‹</Text>
+            </Pressable>
+            <Text className="text-sm font-semibold text-white">{dayLabel}</Text>
+            <Pressable
+              className="h-10 w-10 items-center justify-center rounded-lg active:opacity-80"
+              style={{ backgroundColor: colors.surface }}
+              disabled={logDate >= todayStr}
+              onPress={() => setLogDate((d) => addCalendarDays(d, 1))}
+            >
+              <Text
+                className="text-lg"
+                style={{
+                  color: logDate >= todayStr ? colors.textTertiary : colors.textPrimary,
+                }}
+              >
+                ›
+              </Text>
+            </Pressable>
+          </View>
         </View>
+
+        {!hasNutritionixConfig() ? (
+          <Text className="mb-3 text-xs leading-relaxed" style={{ color: colors.textTertiary }}>
+            Nutritionix is not configured (add EXPO_PUBLIC_NUTRITIONIX_APP_ID and EXPO_PUBLIC_NUTRITIONIX_API_KEY to use food search).
+          </Text>
+        ) : null}
 
         <Text
           className="mb-2 text-[11px] font-semibold uppercase tracking-[0.2em]"
@@ -448,6 +518,31 @@ export default function LogTab() {
             );
           })}
         </ScrollView>
+
+        {workoutIdRaw ? (
+          <View className="mb-3 flex-row items-center justify-between rounded-xl border px-3 py-2" style={{ borderColor: colors.accent }}>
+            <Text className="flex-1 text-sm" style={{ color: colors.textSecondary }}>
+              Linked to{" "}
+              <Text className="font-semibold text-white">
+                {linkedWorkoutTitle ?? "…"}
+              </Text>
+            </Text>
+            <Pressable
+              onPress={() =>
+                router.replace({
+                  pathname: "/(tabs)/log",
+                  params: { date: logDate },
+                })
+              }
+              className="rounded-lg px-2 py-1 active:opacity-80"
+              style={{ backgroundColor: colors.surface }}
+            >
+              <Text className="text-xs font-semibold" style={{ color: colors.accentBright }}>
+                Clear
+              </Text>
+            </Pressable>
+          </View>
+        ) : null}
 
         {hasNutritionixConfig() ? (
           <View className="mb-4">
@@ -501,7 +596,7 @@ export default function LogTab() {
           className="mb-2 text-[11px] font-semibold uppercase tracking-[0.2em]"
           style={{ color: colors.textTertiary }}
         >
-          TODAY
+          {dayLabel.toUpperCase()}
         </Text>
 
         <View className="min-h-[180px] flex-1">
@@ -525,7 +620,9 @@ export default function LogTab() {
                     className="text-center text-base"
                     style={{ color: colors.textSecondary }}
                   >
-                    Nothing logged yet today. What have you eaten?
+                    {dayLabel === "Today"
+                      ? "Nothing logged yet today. What have you eaten?"
+                      : `Nothing logged for ${dayLabel}.`}
                   </Text>
                 </View>
               }
@@ -541,42 +638,50 @@ export default function LogTab() {
                 className="text-[11px] font-semibold uppercase tracking-[0.2em]"
                 style={{ color: colors.textTertiary }}
               >
-                TODAY
+                {dayLabel.toUpperCase()}
               </Text>
               <Text className="text-lg font-bold text-white">
                 {Math.round(totals.calories)}
-                <Text
-                  className="text-sm font-normal"
-                  style={{ color: colors.textSecondary }}
-                >
-                  {" "}
-                  / {goals.calorieGoal} kcal
-                </Text>
+                {macro.hasCalorieTarget && macro.dailyCalorieGoal != null ? (
+                  <Text
+                    className="text-sm font-normal"
+                    style={{ color: colors.textSecondary }}
+                  >
+                    {" "}
+                    / {Math.round(macro.dailyCalorieGoal)} kcal
+                  </Text>
+                ) : null}
               </Text>
             </View>
-            <View className="flex-row justify-around">
-              <MacroRing
-                label="P"
-                value={totals.protein_g}
-                max={goals.proteinGoal}
-                color={colors.accentBright}
-                trackColor={colors.border}
-              />
-              <MacroRing
-                label="C"
-                value={totals.carbs_g}
-                max={goals.carbGoal}
-                color={colors.accentBright}
-                trackColor={colors.border}
-              />
-              <MacroRing
-                label="F"
-                value={totals.fat_g}
-                max={goals.fatGoal}
-                color={colors.accentBright}
-                trackColor={colors.border}
-              />
-            </View>
+            {macro.hasCalorieTarget ? (
+              <View className="flex-row justify-around">
+                <MacroRing
+                  label="P"
+                  value={totals.protein_g}
+                  max={macro.proteinGoalG}
+                  color={colors.accentBright}
+                  trackColor={colors.border}
+                />
+                <MacroRing
+                  label="C"
+                  value={totals.carbs_g}
+                  max={macro.carbGoalG}
+                  color={colors.accentBright}
+                  trackColor={colors.border}
+                />
+                <MacroRing
+                  label="F"
+                  value={totals.fat_g}
+                  max={macro.fatGoalG}
+                  color={colors.accentBright}
+                  trackColor={colors.border}
+                />
+              </View>
+            ) : (
+              <Text className="text-xs" style={{ color: colors.textTertiary }}>
+                Set a daily calorie goal in onboarding or profile to see macro rings here.
+              </Text>
+            )}
           </FrostedCard>
         ) : null}
 

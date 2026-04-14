@@ -1,3 +1,4 @@
+import { getTodayDateString } from "@/lib/formatters";
 import { supabase } from "@/lib/supabase";
 import type { FoodLog } from "@/types/database";
 
@@ -30,18 +31,6 @@ export type DailyNutritionTotals = {
 
 /** Alias for dashboard / hooks */
 export type DailyTotals = DailyNutritionTotals;
-
-function startOfLocalDay(d: Date): Date {
-  const x = new Date(d);
-  x.setHours(0, 0, 0, 0);
-  return x;
-}
-
-function endOfLocalDay(d: Date): Date {
-  const x = new Date(d);
-  x.setHours(23, 59, 59, 999);
-  return x;
-}
 
 function localDayBoundsFromDateString(date: string): { start: Date; end: Date } {
   const parts = date.split("-").map((p) => Number(p));
@@ -89,12 +78,14 @@ export async function saveFoodLog(
 }
 
 /**
+ * Food logs for a local calendar day (`date` = `YYYY-MM-DD`).
  * @param userId — `profiles.id`
  */
-export async function getTodaysFoodLogs(userId: string): Promise<FoodLog[]> {
-  const now = new Date();
-  const start = startOfLocalDay(now);
-  const end = endOfLocalDay(now);
+export async function getFoodLogsForDate(
+  userId: string,
+  date: string,
+): Promise<FoodLog[]> {
+  const { start, end } = localDayBoundsFromDateString(date);
 
   const { data, error } = await supabase
     .from("food_logs")
@@ -108,6 +99,13 @@ export async function getTodaysFoodLogs(userId: string): Promise<FoodLog[]> {
     throw new Error(error.message);
   }
   return data ?? [];
+}
+
+/**
+ * @param userId — `profiles.id`
+ */
+export async function getTodaysFoodLogs(userId: string): Promise<FoodLog[]> {
+  return getFoodLogsForDate(userId, getTodayDateString());
 }
 
 /**

@@ -19,6 +19,7 @@ const ICON_BY_ROUTE: Record<string, TabIconName> = {
   index: "home",
   log: "add-circle",
   workouts: "fitness",
+  trends: "bar-chart",
   profile: "person",
 };
 
@@ -30,6 +31,8 @@ function titleFromRoute(routeName: string): string {
       return "Log";
     case "workouts":
       return "Workouts";
+    case "trends":
+      return "Trends";
     case "profile":
       return "Profile";
     default:
@@ -155,6 +158,9 @@ export function ModernMobileMenu({ state, descriptors, navigation }: BottomTabBa
               flex: isFocused ? 1.65 : 1,
               backgroundColor: "transparent",
             }}
+            accessibilityRole="tab"
+            accessibilityLabel={String(label)}
+            accessibilityState={{ selected: isFocused }}
           >
             <Animated.View
               className="items-center justify-center"

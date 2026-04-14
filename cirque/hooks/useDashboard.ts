@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 
-import { getDailyTotals, getTodaysFoodLogs } from "@/lib/foodLog";
+import { getDailyTotals, getFoodLogsForDate } from "@/lib/foodLog";
 import type { DailyTotals } from "@/lib/foodLog";
 
 export type { DailyTotals } from "@/lib/foodLog";
@@ -11,6 +11,7 @@ import {
 import { generateRefuelAdvice } from "@/lib/refuel";
 import { getWorkouts } from "@/lib/workoutSync";
 import { getTodayDateString } from "@/lib/formatters";
+import type { GenerateRefuelParams } from "@/lib/refuel";
 import { useAuth } from "@/hooks/useAuth";
 import type {
   AiRecommendation,
@@ -22,7 +23,8 @@ import type {
 export type DashboardData = {
   profile: Profile | null;
   dailyTotals: DailyTotals | null;
-  todaysFoodLogs: FoodLog[];
+  /** Food logs for the dashboard-selected calendar day (local `YYYY-MM-DD`). */
+  dayFoodLogs: FoodLog[];
   recentWorkouts: Workout[];
   latestRecommendation: AiRecommendation | null;
 };
@@ -30,7 +32,7 @@ export type DashboardData = {
 const emptyData: DashboardData = {
   profile: null,
   dailyTotals: null,
-  todaysFoodLogs: [],
+  dayFoodLogs: [],
   recentWorkouts: [],
   latestRecommendation: null,
 };
@@ -38,9 +40,12 @@ const emptyData: DashboardData = {
 export function useDashboard(): {
   data: DashboardData;
   isLoading: boolean;
+  /** Local calendar day shown on the dashboard (`YYYY-MM-DD`). */
+  dashboardDate: string;
+  setDashboardDate: (ymd: string) => void;
   refresh: () => Promise<void>;
   /** Calls Edge Function `refuel`, then reloads latest recommendation. */
-  generateRefuel: () => Promise<void>;
+  generateRefuel: (params?: GenerateRefuelParams) => Promise<void>;
   setRecommendationFeedback: (
     recommendationId: string,
     helpful: boolean,
@@ -50,6 +55,7 @@ export function useDashboard(): {
   const { profile, isLoading: authLoading } = useAuth();
   const [data, setData] = useState<DashboardData>(emptyData);
   const [isLoading, setIsLoading] = useState(true);
+  const [dashboardDate, setDashboardDate] = useState(getTodayDateString);
   const [refuelCooldownRemainingSec, setRefuelCooldownRemainingSec] = useState(0);
   const COOLDOWN_SECONDS = 10 * 60;
 
@@ -68,7 +74,7 @@ export function useDashboard(): {
       setIsLoading(true);
     }
     const userId = profile.id;
-    const today = getTodayDateString();
+    const day = dashboardDate;
 
     const [
       logsResult,
@@ -76,11 +82,11 @@ export function useDashboard(): {
       workoutsResult,
       recResult,
     ] = await Promise.all([
-      getTodaysFoodLogs(userId).catch((e) => {
-        console.error("[useDashboard] todaysFoodLogs", e);
+      getFoodLogsForDate(userId, day).catch((e) => {
+        console.error("[useDashboard] dayFoodLogs", e);
         return [] as FoodLog[];
       }),
-      getDailyTotals(userId, today).catch((e) => {
+      getDailyTotals(userId, day).catch((e) => {
         console.error("[useDashboard] dailyTotals", e);
         return null as DailyTotals | null;
       }),
@@ -97,22 +103,25 @@ export function useDashboard(): {
     setData({
       profile,
       dailyTotals: totalsResult,
-      todaysFoodLogs: logsResult,
+      dayFoodLogs: logsResult,
       recentWorkouts: workoutsResult,
       latestRecommendation: recResult,
     });
     setIsLoading(false);
   },
-    [profile, authLoading],
+    [profile, authLoading, dashboardDate],
   );
 
-  const generateRefuel = useCallback(async () => {
-    if (!profile?.id) {
-      return;
-    }
-    await generateRefuelAdvice();
-    await load({ silent: true });
-  }, [profile?.id, load]);
+  const generateRefuel = useCallback(
+    async (params?: GenerateRefuelParams) => {
+      if (!profile?.id) {
+        return;
+      }
+      await generateRefuelAdvice(params);
+      await load({ silent: true });
+    },
+    [profile?.id, load],
+  );
 
   const setRecommendationFeedback = useCallback(
     async (recommendationId: string, helpful: boolean) => {
@@ -156,6 +165,8 @@ export function useDashboard(): {
   return {
     data,
     isLoading,
+    dashboardDate,
+    setDashboardDate,
     refresh: () => load({ silent: true }),
     generateRefuel,
     setRecommendationFeedback,

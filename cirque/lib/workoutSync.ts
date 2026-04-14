@@ -171,3 +171,77 @@ export async function getWorkouts(
   }
   return data ?? [];
 }
+
+/** Single workout row for the user, or null if missing / not owned. */
+export async function getWorkoutById(
+  userId: string,
+  workoutId: string,
+): Promise<Workout | null> {
+  const { data, error } = await supabase
+    .from("workouts")
+    .select("*")
+    .eq("user_id", userId)
+    .eq("id", workoutId)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(error.message);
+  }
+  return data;
+}
+
+export type ManualWorkoutInput = {
+  activity_type: string;
+  duration_seconds: number;
+  distance_meters?: number | null;
+  calories_burned?: number | null;
+  avg_heart_rate?: number | null;
+  elevation_gain_m?: number | null;
+  started_at: string;
+};
+
+function sanitizeNum(n: number | null | undefined): number | null {
+  if (n == null) {
+    return null;
+  }
+  const x = Number(n);
+  return Number.isFinite(x) ? x : null;
+}
+
+/**
+ * Inserts a user-entered workout (`source: manual`). Does not write to HealthKit.
+ */
+export async function insertManualWorkout(
+  userId: string,
+  input: ManualWorkoutInput,
+): Promise<Workout> {
+  const activity = input.activity_type.trim();
+  if (!activity) {
+    throw new Error("Activity type is required.");
+  }
+  const dur = Math.max(0, Math.floor(Number(input.duration_seconds) || 0));
+  const { data, error } = await supabase
+    .from("workouts")
+    .insert({
+      user_id: userId,
+      source: "manual",
+      activity_type: activity,
+      duration_seconds: dur,
+      distance_meters: sanitizeNum(input.distance_meters ?? null),
+      calories_burned: sanitizeNum(input.calories_burned ?? null),
+      avg_heart_rate:
+        input.avg_heart_rate != null
+          ? Math.round(Number(input.avg_heart_rate)) || null
+          : null,
+      elevation_gain_m: sanitizeNum(input.elevation_gain_m ?? null),
+      started_at: input.started_at,
+      raw_data: { manual: true },
+    })
+    .select()
+    .single();
+
+  if (error) {
+    throw new Error(error.message);
+  }
+  return data;
+}

@@ -11,7 +11,9 @@ import { Platform } from "react-native";
 
 import { supabase } from "@/lib/supabase";
 import { syncHealthKitWorkouts } from "@/lib/workoutSync";
-import type { Profile } from "@/types/database";
+import type { Database, Profile } from "@/types/database";
+
+export type ProfileUpdate = Database["public"]["Tables"]["profiles"]["Update"];
 
 export type AuthContextValue = {
   session: Session | null;
@@ -22,6 +24,8 @@ export type AuthContextValue = {
   profileComplete: boolean;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
+  /** Persists allowed `profiles` columns and refreshes local profile state. */
+  updateProfile: (patch: ProfileUpdate) => Promise<{ error: Error | null }>;
 };
 
 export const AuthContext = createContext<AuthContextValue | null>(null);
@@ -63,6 +67,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await fetchProfile(user.id);
     }
   }, [fetchProfile, user?.id]);
+
+  const updateProfile = useCallback(
+    async (patch: ProfileUpdate) => {
+      if (!profile?.id || !user?.id) {
+        return { error: new Error("Not signed in.") };
+      }
+      const { error } = await supabase
+        .from("profiles")
+        .update(patch)
+        .eq("id", profile.id);
+      if (error) {
+        return { error: new Error(error.message) };
+      }
+      await fetchProfile(user.id);
+      return { error: null };
+    },
+    [profile?.id, user?.id, fetchProfile],
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -121,6 +143,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       profileComplete,
       signOut,
       refreshProfile,
+      updateProfile,
     }),
     [
       session,
@@ -130,6 +153,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       profileComplete,
       signOut,
       refreshProfile,
+      updateProfile,
     ],
   );
 

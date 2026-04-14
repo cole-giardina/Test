@@ -20,6 +20,12 @@ import { StatCard } from "@/components/ui/StatCard";
 import { WorkoutRow } from "@/components/ui/WorkoutRow";
 import { colors } from "@/constants/colors";
 import { useDashboard } from "@/hooks/useDashboard";
+import {
+  addCalendarDays,
+  formatDashboardDayLabel,
+  getTodayDateString,
+} from "@/lib/formatters";
+import { getMacroTargetsForProfile } from "@/lib/macroGoals";
 
 const AMBER = colors.warning;
 
@@ -44,6 +50,8 @@ export default function DashboardTab() {
   const {
     data,
     isLoading,
+    dashboardDate,
+    setDashboardDate,
     refresh,
     generateRefuel,
     setRecommendationFeedback,
@@ -55,25 +63,23 @@ export default function DashboardTab() {
 
   const profile = data.profile;
   const totals = data.dailyTotals ?? zeroTotals();
+  const dayLabel = formatDashboardDayLabel(dashboardDate);
   const headerDate = new Date().toLocaleDateString("en-US", {
     weekday: "short",
     month: "short",
     day: "numeric",
   });
 
-  const calorieGoal = profile?.daily_calorie_goal ?? null;
-  const proteinGoal = profile?.daily_protein_g ?? 120;
-  const carbGoal =
-    calorieGoal != null && calorieGoal > 0 ? (calorieGoal * 0.5) / 4 : 0;
-  const fatGoal =
-    calorieGoal != null && calorieGoal > 0 ? (calorieGoal * 0.25) / 9 : 0;
+  const macro = getMacroTargetsForProfile(profile);
+  const calorieGoal = macro.dailyCalorieGoal;
+  const proteinGoal = macro.proteinGoalG;
+  const carbGoal = macro.carbGoalG;
+  const fatGoal = macro.fatGoalG;
 
-  const showMacroBreakdown =
-    profile != null &&
-    profile.daily_calorie_goal != null &&
-    profile.daily_calorie_goal > 0;
+  const showMacroBreakdown = macro.hasCalorieTarget;
 
-  const foodPreview = data.todaysFoodLogs.slice(0, 3);
+  const foodPreview = data.dayFoodLogs.slice(0, 3);
+  const todayStr = getTodayDateString();
 
   async function onRefresh() {
     setRefreshing(true);
@@ -122,7 +128,14 @@ export default function DashboardTab() {
       : "Get advice";
 
   function goToLog() {
-    router.push("/(tabs)/log");
+    router.push({
+      pathname: "/(tabs)/log",
+      params: { date: dashboardDate },
+    });
+  }
+
+  function shiftDashboardDay(delta: number) {
+    setDashboardDate(addCalendarDays(dashboardDate, delta));
   }
 
   return (
@@ -161,6 +174,31 @@ export default function DashboardTab() {
               >
                 {headerDate}
               </Text>
+            </View>
+            <View className="mt-4 flex-row items-center justify-between rounded-xl border px-2 py-2" style={{ borderColor: colors.border }}>
+              <Pressable
+                className="h-10 w-10 items-center justify-center rounded-lg active:opacity-80"
+                style={{ backgroundColor: colors.surface }}
+                onPress={() => shiftDashboardDay(-1)}
+              >
+                <Text className="text-lg text-white">‹</Text>
+              </Pressable>
+              <Text className="text-sm font-semibold text-white">{dayLabel}</Text>
+              <Pressable
+                className="h-10 w-10 items-center justify-center rounded-lg active:opacity-80"
+                style={{ backgroundColor: colors.surface }}
+                disabled={dashboardDate >= todayStr}
+                onPress={() => shiftDashboardDay(1)}
+              >
+                <Text
+                  className="text-lg"
+                  style={{
+                    color: dashboardDate >= todayStr ? colors.textTertiary : colors.textPrimary,
+                  }}
+                >
+                  ›
+                </Text>
+              </Pressable>
             </View>
           </View>
 
@@ -251,13 +289,21 @@ export default function DashboardTab() {
               </FrostedCard>
             ) : (
               data.recentWorkouts.map((w) => (
-                <WorkoutRow key={w.id} workout={w} />
+                <WorkoutRow
+                  key={w.id}
+                  workout={w}
+                  onPress={() => router.push(`/(tabs)/workouts/${w.id}`)}
+                />
               ))
             )}
           </View>
 
           <View className="mb-5">
-            <SectionHeader title="Today's food" actionLabel="See all" onAction={goToLog} />
+            <SectionHeader
+              title={dayLabel === "Today" ? "Today's food" : `Food · ${dayLabel}`}
+              actionLabel="See all"
+              onAction={goToLog}
+            />
             {foodPreview.length === 0 ? (
               <FrostedCard>
                 <View className="items-center py-2">
@@ -265,7 +311,9 @@ export default function DashboardTab() {
                     className="mb-3 text-center text-sm"
                     style={{ color: colors.textSecondary }}
                   >
-                    Nothing logged yet today
+                    {dayLabel === "Today"
+                      ? "Nothing logged yet today"
+                      : `Nothing logged for ${dayLabel}`}
                   </Text>
                   <Pressable
                     className="rounded-[12px] px-5 py-3 active:opacity-90"

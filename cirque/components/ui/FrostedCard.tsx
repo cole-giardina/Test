@@ -1,5 +1,10 @@
 import type { ReactNode } from "react";
-import { View, type StyleProp, type ViewStyle } from "react-native";
+import {
+  View,
+  type StyleProp,
+  type ViewStyle,
+  type AccessibilityProps,
+} from "react-native";
 
 import { colors } from "@/constants/colors";
 
@@ -13,7 +18,7 @@ type FrostedCardProps = {
   leftBorderAccent?: string;
   /** Inner padding; default 16. */
   padding?: number;
-};
+} & Pick<AccessibilityProps, "accessibilityLabel" | "accessibilityRole">;
 
 export function FrostedCard({
   children,
@@ -22,10 +27,14 @@ export function FrostedCard({
   accentTop,
   leftBorderAccent,
   padding = 16,
+  accessibilityLabel,
+  accessibilityRole,
 }: FrostedCardProps) {
   return (
     <View
       className={className}
+      accessibilityLabel={accessibilityLabel}
+      accessibilityRole={accessibilityRole}
       style={[
         {
           borderRadius: 16,
