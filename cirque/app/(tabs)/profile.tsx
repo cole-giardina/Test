@@ -186,6 +186,14 @@ export default function ProfileTab() {
             Workouts sync when you open the app or tap below.
           </Text>
         )}
+        <Text
+          className="mt-3 text-xs leading-relaxed"
+          style={{ color: colors.textTertiary }}
+        >
+          If workouts or heart rate are missing: iPhone Settings → Health → Data
+          Access & Devices → Cirque → turn on Workouts, Heart Rate, and Active
+          Energy (and Distance if listed).
+        </Text>
         <Pressable
           className="mt-4 flex-row items-center justify-center rounded-[12px] py-3 active:opacity-90"
           style={{

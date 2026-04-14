@@ -20,20 +20,21 @@ export type HealthKitWorkout = {
   sourceActivityTypeRaw: string;
 };
 
+/** Workout sync + HR/energy/distance. No body weight — use your profile for weight. */
 const READ_TYPES: Array<
   | "workoutType"
   | "activeEnergyBurned"
   | "heartRate"
   | "distanceWalkingRunning"
   | "distanceCycling"
-  | "bodyMass"
+  | "distanceSwimming"
 > = [
   "workoutType",
   "activeEnergyBurned",
   "heartRate",
   "distanceWalkingRunning",
   "distanceCycling",
-  "bodyMass",
+  "distanceSwimming",
 ];
 
 /** @deprecated Use READ_TYPES — kept for any legacy imports */
