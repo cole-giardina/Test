@@ -20,21 +20,23 @@ export type HealthKitWorkout = {
   sourceActivityTypeRaw: string;
 };
 
-/** Workout sync + HR/energy/distance. No body weight — use your profile for weight. */
+/**
+ * Workout sync + HR/energy + run/bike distance quantities.
+ * Swim distance comes from each workout’s `totalDistance`, not the separate
+ * “Swimming Distance” type — omitting that avoids an odd one-line Health prompt.
+ */
 const READ_TYPES: Array<
   | "workoutType"
   | "activeEnergyBurned"
   | "heartRate"
   | "distanceWalkingRunning"
   | "distanceCycling"
-  | "distanceSwimming"
 > = [
   "workoutType",
   "activeEnergyBurned",
   "heartRate",
   "distanceWalkingRunning",
   "distanceCycling",
-  "distanceSwimming",
 ];
 
 /** @deprecated Use READ_TYPES — kept for any legacy imports */
