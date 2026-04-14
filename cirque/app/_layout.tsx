@@ -1,10 +1,7 @@
 import "../global.css";
 import { useEffect } from "react";
 import { ActivityIndicator, StatusBar, View } from "react-native";
-import * as WebBrowser from "expo-web-browser";
 import { Stack, useRouter, useSegments } from "expo-router";
-
-WebBrowser.maybeCompleteAuthSession();
 
 import { AuthProvider } from "@/context/AuthContext";
 import { colors } from "@/constants/colors";
@@ -20,23 +17,27 @@ function RootNavigation() {
       return;
     }
 
+    const segs = segments as string[];
+    const seg0 = segs[0];
+    const seg1 = segs.length > 1 ? segs[1] : undefined;
+
     if (!session) {
-      if (segments[0] === "(tabs)") {
+      const onLogin = seg0 === "(auth)" && seg1 === "login";
+      if (!onLogin) {
         router.replace("/(auth)/login");
       }
       return;
     }
 
     if (!profileComplete) {
-      const onOnboarding =
-        segments[0] === "(auth)" && segments.includes("onboarding");
+      const onOnboarding = seg0 === "(auth)" && seg1 === "onboarding";
       if (!onOnboarding) {
         router.replace("/(auth)/onboarding");
       }
       return;
     }
 
-    if (segments[0] === "(auth)") {
+    if (segs.length === 0 || seg0 === "(auth)") {
       router.replace("/(tabs)");
     }
   }, [isLoading, session, profileComplete, segments, router]);

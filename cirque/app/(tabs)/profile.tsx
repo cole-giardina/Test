@@ -12,11 +12,7 @@ import { FrostedCard } from "@/components/ui/FrostedCard";
 import { colors } from "@/constants/colors";
 import { useAuth } from "@/hooks/useAuth";
 import { useHealthKit } from "@/hooks/useHealthKit";
-import {
-  connectStravaAccount,
-  hasStravaConfig,
-  syncStravaWorkouts,
-} from "@/lib/strava";
+import { hasStravaConfig } from "@/lib/stravaConfig";
 
 export default function ProfileTab() {
   const insets = useSafeAreaInsets();
@@ -59,6 +55,7 @@ export default function ProfileTab() {
     setStravaError(null);
     setStravaBusy(true);
     try {
+      const { connectStravaAccount } = await import("@/lib/strava");
       await connectStravaAccount();
       await refreshProfile();
     } catch (e) {
@@ -74,6 +71,7 @@ export default function ProfileTab() {
     setStravaError(null);
     setStravaBusy(true);
     try {
+      const { syncStravaWorkouts } = await import("@/lib/strava");
       await syncStravaWorkouts();
     } catch (e) {
       setStravaError(

@@ -6,9 +6,10 @@ import { supabase } from "@/lib/supabase";
 
 const STRAVA_AUTHORIZE = "https://www.strava.com/oauth/authorize";
 
-export function hasStravaConfig(): boolean {
-  return Boolean(process.env.EXPO_PUBLIC_STRAVA_CLIENT_ID?.trim());
-}
+/**
+ * Strava OAuth + API helpers. Import lazily (e.g. `await import("@/lib/strava")`)
+ * so Expo Go / builds without `expo-web-browser` native code don’t crash on Profile load.
+ */
 
 export function getStravaRedirectUri(): string {
   return AuthSession.makeRedirectUri({
