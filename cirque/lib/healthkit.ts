@@ -1,8 +1,4 @@
-import {
-  HealthKitQuery,
-  QuantitySample,
-  WorkoutSample,
-} from "apple-health";
+import { HealthKitQuery, QuantitySample } from "apple-health";
 import AppleHealth from "apple-health";
 import { Platform } from "react-native";
 
@@ -117,6 +113,17 @@ export async function requestHealthKitPermissions(): Promise<boolean> {
   }
 }
 
+type NativeWorkoutRow = {
+  uuid?: string;
+  workoutActivityType?: string;
+  duration?: number;
+  startDate?: string;
+  endDate?: string;
+  sourceName?: string;
+  totalEnergyBurned?: number;
+  totalDistance?: number;
+};
+
 export async function fetchRecentWorkouts(
   limit = 20,
 ): Promise<HealthKitWorkout[]> {
@@ -130,24 +137,39 @@ export async function fetchRecentWorkouts(
       limit,
       ascending: false,
     });
-    const samples = await query.execute();
+    /**
+     * `HealthKitQuery.execute()` uses `executeSamples()` + `wrapNativeSamples()`, which can throw
+     * "Unknown sample type" when Expo does not surface `__typename` / `workoutActivityType` on the
+     * native shared object. The underlying `native.execute()` returns plain workout dicts instead.
+     */
+    const native = (
+      query as unknown as {
+        native: { execute: () => Promise<NativeWorkoutRow[]> };
+      }
+    ).native;
+    const rows = await native.execute();
     const out: HealthKitWorkout[] = [];
-    for (const s of samples) {
-      if (s.__typename !== "WorkoutSample") {
+    for (const w of rows) {
+      const uuid = String(w.uuid ?? "");
+      if (!uuid) {
         continue;
       }
-      const w = s as WorkoutSample;
-      const raw = String(w.workoutActivityType);
+      const raw = String(w.workoutActivityType ?? "other");
       out.push({
-        uuid: w.uuid,
+        uuid,
         activityType: mapActivityType(raw),
-        startDate: w.startDate,
-        endDate: w.endDate,
-        durationSeconds: w.duration,
+        startDate: String(w.startDate ?? ""),
+        endDate: String(w.endDate ?? ""),
+        durationSeconds: Math.round(Number(w.duration ?? 0)),
         totalEnergyBurned:
-          w.totalEnergyBurned != null ? Number(w.totalEnergyBurned) : null,
-        totalDistance: w.totalDistance != null ? Number(w.totalDistance) : null,
-        sourceName: w.sourceName ?? "Unknown",
+          w.totalEnergyBurned != null && Number.isFinite(w.totalEnergyBurned)
+            ? Number(w.totalEnergyBurned)
+            : null,
+        totalDistance:
+          w.totalDistance != null && Number.isFinite(w.totalDistance)
+            ? Number(w.totalDistance)
+            : null,
+        sourceName: w.sourceName?.trim() ? w.sourceName : "Unknown",
         sourceActivityTypeRaw: raw,
       });
     }
