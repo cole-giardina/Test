@@ -27,8 +27,10 @@ export function StatCard({
     <View className="min-w-0 flex-1">
       <FrostedCard padding={14} accentTop={accentTop}>
         <Text
-          className="text-[10px] font-semibold uppercase tracking-[0.2em]"
+          className="text-[9px] font-semibold uppercase tracking-[0.08em]"
           style={{ color: colors.textTertiary }}
+          numberOfLines={1}
+          adjustsFontSizeToFit
         >
           {label}
         </Text>

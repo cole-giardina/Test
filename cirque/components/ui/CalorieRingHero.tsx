@@ -1,6 +1,5 @@
 import { Text, View } from "react-native";
 
-import { FrostedCard } from "@/components/ui/FrostedCard";
 import { MacroRing } from "@/components/ui/MacroRing";
 import { colors } from "@/constants/colors";
 
@@ -40,7 +39,7 @@ export function CalorieRingHero({
         ) : null}
       </Text>
       <Text
-        className="mt-1 text-[11px] font-semibold uppercase tracking-[0.2em]"
+        className="mt-1 text-[11px] font-semibold uppercase tracking-[0.14em]"
         style={{ color: colors.textTertiary }}
       >
         kcal
@@ -49,11 +48,11 @@ export function CalorieRingHero({
   );
 
   return (
-    <FrostedCard className="w-full max-w-[360px] self-center">
+    <View className="w-full max-w-[360px] self-center">
       <View className="items-center">
         <View className="mb-1 items-center">
           <Text
-            className="text-[10px] font-semibold uppercase tracking-[0.15em]"
+              className="text-[10px] font-semibold uppercase tracking-[0.12em]"
             style={{ color: colors.textTertiary }}
           >
             Carbs
@@ -67,10 +66,11 @@ export function CalorieRingHero({
         </View>
 
         <View className="flex-row items-center justify-center">
-          <View className="w-[56px] items-center pr-1">
+          <View className="w-[66px] items-center pr-1">
             <Text
-              className="text-[10px] font-semibold uppercase tracking-[0.15em]"
+              className="text-[10px] font-semibold uppercase tracking-[0.12em]"
               style={{ color: colors.textTertiary }}
+              numberOfLines={1}
             >
               Protein
             </Text>
@@ -88,15 +88,16 @@ export function CalorieRingHero({
             color={colors.accentBright}
             label=""
             size={200}
-            strokeWidth={14}
+            strokeWidth={18}
             trackColor={colors.border}
             centerContent={center}
           />
 
-          <View className="w-[56px] items-center pl-1">
+          <View className="w-[66px] items-center pl-1">
             <Text
-              className="text-[10px] font-semibold uppercase tracking-[0.15em]"
+              className="text-[10px] font-semibold uppercase tracking-[0.12em]"
               style={{ color: colors.textTertiary }}
+              numberOfLines={1}
             >
               Fat
             </Text>
@@ -109,6 +110,6 @@ export function CalorieRingHero({
           </View>
         </View>
       </View>
-    </FrostedCard>
+    </View>
   );
 }

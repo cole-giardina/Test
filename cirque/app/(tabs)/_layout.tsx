@@ -1,22 +1,15 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Tabs } from "expo-router";
 
+import { ModernMobileMenu } from "@/components/ui/modern-mobile-menu";
 import { colors } from "@/constants/colors";
 
 export default function TabsLayout() {
   return (
     <Tabs
+      tabBar={(props) => <ModernMobileMenu {...props} />}
       screenOptions={{
         headerShown: false,
-        tabBarStyle: {
-          backgroundColor: colors.background,
-          borderTopColor: colors.border,
-          borderTopWidth: 1,
-          height: 88,
-        },
-        tabBarActiveTintColor: colors.accentBright,
-        tabBarInactiveTintColor: "#3A5570",
-        tabBarItemStyle: { paddingBottom: 8 },
       }}
     >
       <Tabs.Screen

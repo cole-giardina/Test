@@ -1,35 +1,35 @@
 /**
- * Cirque design tokens — dark slate-blue UI, cool blue-gray accents,
- * frosted glass surfaces. See CLAUDE.md "Design system".
+ * Cirque design tokens — graphite/charcoal shell inspired by the
+ * landing page reference (smokey neutrals + soft silver accents).
  */
 export const colors = {
   // Backgrounds
-  background: "#0D1B2A",
-  backgroundSecondary: "#112230",
-  surface: "#1A2E40",
-  surfaceFrosted: "#1E3448",
+  background: "#3C3835",
+  backgroundSecondary: "#46413D",
+  surface: "#514B47",
+  surfaceFrosted: "#5C5651",
 
   // Borders
-  border: "#2A4560",
-  borderFrost: "#3A5570",
+  border: "#6B645F",
+  borderFrost: "#77706A",
 
   // Text
-  textPrimary: "#FFFFFF",
-  textSecondary: "#A8C0D0",
-  textTertiary: "#5C7E8F",
+  textPrimary: "#F2EEEA",
+  textSecondary: "#D3CBC4",
+  textTertiary: "#B1A79F",
 
   // Brand accents
-  accent: "#5C7E8F",
-  accentBright: "#7FB3C8",
-  accentGlow: "#AECFDC",
+  accent: "#6E7F99",
+  accentBright: "#8FA1BC",
+  accentGlow: "#B7C4D8",
 
   // Semantic
-  success: "#4CAF82",
-  warning: "#E8A838",
-  danger: "#E05C5C",
+  success: "#57B58A",
+  warning: "#D7A14E",
+  danger: "#E56D6D",
 
   // Electrolyte bar colors
-  sodium: "#7FB3C8",
-  potassium: "#6BA892",
-  magnesium: "#8B9DC3",
+  sodium: "#BEB2A8",
+  potassium: "#AFA49A",
+  magnesium: "#C7BCB3",
 } as const;

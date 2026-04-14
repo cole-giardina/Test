@@ -20,7 +20,6 @@ import { StatCard } from "@/components/ui/StatCard";
 import { WorkoutRow } from "@/components/ui/WorkoutRow";
 import { colors } from "@/constants/colors";
 import { useDashboard } from "@/hooks/useDashboard";
-import { formatFirstName, getGreeting } from "@/lib/formatters";
 
 const AMBER = colors.warning;
 
@@ -40,18 +39,6 @@ function zeroTotals() {
   };
 }
 
-function initialsFromName(name: string | null | undefined): string {
-  const t = name?.trim();
-  if (!t) {
-    return "?";
-  }
-  const parts = t.split(/\s+/);
-  if (parts.length >= 2) {
-    return `${parts[0]![0] ?? ""}${parts[parts.length - 1]![0] ?? ""}`.toUpperCase();
-  }
-  return t.slice(0, 2).toUpperCase();
-}
-
 export default function DashboardTab() {
   const insets = useSafeAreaInsets();
   const {
@@ -68,9 +55,6 @@ export default function DashboardTab() {
 
   const profile = data.profile;
   const totals = data.dailyTotals ?? zeroTotals();
-  const firstName = formatFirstName(profile?.display_name ?? "");
-  const greetingName = firstName || "there";
-
   const headerDate = new Date().toLocaleDateString("en-US", {
     weekday: "short",
     month: "short",
@@ -163,33 +147,19 @@ export default function DashboardTab() {
             />
           }
         >
-          <View className="mb-5 flex-row items-start justify-between pt-2">
-            <View className="max-w-[68%]">
+          <View className="mb-5 pt-2">
+            <View>
               <Text
                 className="font-bold text-white"
                 style={{ fontSize: 22, lineHeight: 28 }}
               >
-                {getGreeting()}, {greetingName}
+                Dashboard
               </Text>
               <Text
                 className="mt-0.5 text-[13px]"
                 style={{ color: colors.textSecondary }}
               >
                 {headerDate}
-              </Text>
-            </View>
-            <View
-              className="h-11 w-11 items-center justify-center rounded-full border"
-              style={{
-                backgroundColor: colors.surface,
-                borderColor: colors.accent,
-              }}
-            >
-              <Text
-                className="text-sm font-bold"
-                style={{ color: colors.accentBright }}
-              >
-                {initialsFromName(profile?.display_name)}
               </Text>
             </View>
           </View>

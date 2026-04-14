@@ -16,7 +16,7 @@ export function SectionHeader({
   return (
     <View className="mb-3 flex-row items-center justify-between">
       <Text
-        className="text-[11px] font-semibold uppercase tracking-[0.2em]"
+        className="text-[11px] font-semibold uppercase tracking-[0.14em]"
         style={{ color: colors.textTertiary }}
         numberOfLines={1}
       >
