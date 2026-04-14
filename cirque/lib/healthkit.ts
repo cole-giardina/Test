@@ -167,11 +167,16 @@ export async function fetchRecentWorkouts(
     ).native;
     const rows = await native.execute();
     const out: HealthKitWorkout[] = [];
+    const seenUuid = new Set<string>();
     for (const w of rows) {
       const uuid = String(w.uuid ?? "");
       if (!uuid) {
         continue;
       }
+      if (seenUuid.has(uuid)) {
+        continue;
+      }
+      seenUuid.add(uuid);
       const raw = String(w.workoutActivityType ?? "other");
       out.push({
         uuid,

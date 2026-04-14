@@ -21,12 +21,49 @@ async function workoutExistsForUuid(
     .select("id")
     .eq("user_id", userId)
     .eq("source", "healthkit")
-    .contains("raw_data", { uuid })
+    .eq("raw_data->>uuid", uuid)
     .limit(1)
     .maybeSingle();
 
   if (error) {
     console.error("[workoutSync] workoutExistsForUuid", error.message);
+    return false;
+  }
+  return data != null;
+}
+
+/**
+ * Apple sometimes surfaces the same session as multiple HKWorkout samples (different UUIDs).
+ * Treat as duplicate if same user/source, activity, duration, and start time within a short window.
+ */
+async function workoutExistsSimilarHealthKit(
+  userId: string,
+  startedAt: string,
+  durationSeconds: number,
+  activityType: string,
+): Promise<boolean> {
+  const t = Date.parse(startedAt);
+  if (Number.isNaN(t)) {
+    return false;
+  }
+  const windowMs = 120_000;
+  const from = new Date(t - windowMs).toISOString();
+  const to = new Date(t + windowMs).toISOString();
+
+  const { data, error } = await supabase
+    .from("workouts")
+    .select("id")
+    .eq("user_id", userId)
+    .eq("source", "healthkit")
+    .eq("activity_type", activityType)
+    .eq("duration_seconds", durationSeconds)
+    .gte("started_at", from)
+    .lte("started_at", to)
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    console.error("[workoutSync] workoutExistsSimilarHealthKit", error.message);
     return false;
   }
   return data != null;
@@ -51,10 +88,29 @@ export async function syncHealthKitWorkouts(
     return result;
   }
 
+  const seenUuids = new Set<string>();
+
   for (const w of workouts) {
     try {
-      const exists = await workoutExistsForUuid(userId, w.uuid);
-      if (exists) {
+      if (seenUuids.has(w.uuid)) {
+        result.skipped += 1;
+        continue;
+      }
+      seenUuids.add(w.uuid);
+
+      const existsByUuid = await workoutExistsForUuid(userId, w.uuid);
+      if (existsByUuid) {
+        result.skipped += 1;
+        continue;
+      }
+
+      const existsSimilar = await workoutExistsSimilarHealthKit(
+        userId,
+        w.startDate,
+        w.durationSeconds,
+        w.activityType,
+      );
+      if (existsSimilar) {
         result.skipped += 1;
         continue;
       }
